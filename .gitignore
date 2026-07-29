@@ -1,0 +1,25 @@
+# dependencias
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# next.js
+.next/
+out/
+
+# env
+.env
+.env.local
+
+# docker
+.postgres-data/
+
+# editor
+.vscode/
+.idea/
+
+# os
+.DS_Store
+Thumbs.db
