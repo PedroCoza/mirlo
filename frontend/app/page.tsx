@@ -1,8 +1,49 @@
-export default function Home() {
+"use client";
+
+import { useEffect, useState } from "react";
+
+export default function Landing() {
+  const [apiEstado, setApiEstado] = useState<"cargando" | "ok" | "error">(
+    "cargando",
+  );
+
+  // Verifica comunicación con el backend al cargar.
+  useEffect(() => {
+    const url =
+      process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+    fetch(`${url}/health`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then(() => setApiEstado("ok"))
+      .catch(() => setApiEstado("error"));
+  }, []);
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-8">
-      <h1 className="text-4xl font-bold">Mirlo</h1>
-      <p className="mt-2 text-zinc-500">Transcripción, traducción y diarización de audio</p>
+    <main className="flex min-h-[calc(100vh-120px)] flex-col items-center justify-center gap-8 px-6 text-center">
+      <div className="text-6xl" aria-hidden>
+        🐦
+      </div>
+      <h1 className="text-5xl font-bold tracking-tight sm:text-6xl">Mirlo</h1>
+      <p className="max-w-xl text-lg text-text-secondary sm:text-xl">
+        Transcripción · Traducción · Diarización de Audio
+      </p>
+
+      <span className="rounded-full border border-accent-secondary/40 bg-accent-secondary/10 px-4 py-1 text-sm font-medium text-accent-secondary">
+        local-first · Docker · GPU
+      </span>
+
+      <a
+        href="/perfiles"
+        className="eclosion rounded-xl bg-accent-primary px-8 py-3 text-base font-semibold text-white shadow-lg transition hover:opacity-90"
+      >
+        Comenzar
+      </a>
+
+      <p className="mt-2 text-xs text-text-secondary">
+        API:{" "}
+        {apiEstado === "cargando" && "conectando…"}
+        {apiEstado === "ok" && "🟢 conectada"}
+        {apiEstado === "error" && "🔴 sin conexión"}
+      </p>
     </main>
   );
 }
