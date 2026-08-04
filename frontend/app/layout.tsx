@@ -39,8 +39,12 @@ export default function RootLayout({
             <ThemeSwitch />
           </header>
           <main className="flex-1">{children}</main>
-          <footer className="border-t border-border-c bg-bg-surface px-6 py-4 text-center text-sm text-text-secondary">
-            Mirlo · Transcripción, traducción y diarización de audio · local-first
+          <footer className="flex items-center justify-between border-t border-border-c bg-bg-surface px-6 py-4 text-sm text-text-secondary">
+            <span>Mirlo · local-first</span>
+            <nav className="flex gap-4">
+              <a href="/contacto" className="hover:text-text-primary">Contacto</a>
+              <a href="/legal" className="hover:text-text-primary">Legal</a>
+            </nav>
           </footer>
         </ThemeProvider>
       </body>
