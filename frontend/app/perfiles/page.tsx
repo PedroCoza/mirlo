@@ -10,14 +10,13 @@ type Perfil = {
 };
 
 const AVATARES = ["🧑", "💼", "🐣", "🎧", "🎬", "📚", "🎵", "🎤"];
-const PERFILES_INICIALES: Perfil[] = [
-  { id: "personal", nombre: "Personal", avatar: "🧑" },
-  { id: "trabajo", nombre: "Trabajo", avatar: "💼" },
-];
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export default function SelectorPerfiles() {
   const router = useRouter();
-  const [perfiles, setPerfiles] = useState<Perfil[]>(PERFILES_INICIALES);
+  const [perfiles, setPerfiles] = useState<Perfil[]>([]);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [creando, setCreando] = useState(false);
   const [nuevoNombre, setNuevoNombre] = useState("");
   const [nuevoAvatar, setNuevoAvatar] = useState("🐣");
@@ -29,32 +28,36 @@ export default function SelectorPerfiles() {
   const [confirmandoId, setConfirmandoId] = useState<string | null>(null);
 
   useEffect(() => {
-    const guardados = localStorage.getItem("mirlo-perfiles");
-    if (guardados) setPerfiles(JSON.parse(guardados));
+    fetch(`${API_URL}/perfiles`)
+      .then((r) => r.json())
+      .then((data) => setPerfiles(data))
+      .catch(() => setError("No se pudieron cargar los perfiles"))
+      .finally(() => setCargando(false));
   }, []);
-
-  const guardar = (lista: Perfil[]) => {
-    setPerfiles(lista);
-    localStorage.setItem("mirlo-perfiles", JSON.stringify(lista));
-  };
 
   const seleccionar = (perfil: Perfil) => {
     localStorage.setItem("mirlo-perfil-activo", JSON.stringify(perfil));
     router.push("/nido");
   };
 
-  const crear = () => {
+  const crear = async () => {
     const nombre = nuevoNombre.trim();
     if (!nombre) return;
-    const nuevo: Perfil = {
-      id: crypto.randomUUID(),
-      nombre,
-      avatar: nuevoAvatar,
-    };
-    guardar([...perfiles, nuevo]);
-    setNuevoNombre("");
-    setNuevoAvatar("🐣");
-    setCreando(false);
+    try {
+      const res = await fetch(`${API_URL}/perfiles`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nombre, avatar: nuevoAvatar }),
+      });
+      if (!res.ok) throw new Error();
+      const perfil = await res.json();
+      setPerfiles([...perfiles, perfil]);
+      setNuevoNombre("");
+      setNuevoAvatar("🐣");
+      setCreando(false);
+    } catch {
+      setError("No se pudo crear el perfil");
+    }
   };
 
   const iniciarEdicion = (perfil: Perfil) => {
@@ -64,25 +67,46 @@ export default function SelectorPerfiles() {
     setConfirmandoId(null);
   };
 
-  const guardarEdicion = (id: string) => {
+  const guardarEdicion = async (id: string) => {
     const nombre = editNombre.trim();
     if (!nombre) return;
-    guardar(
-      perfiles.map((p) =>
-        p.id === id ? { ...p, nombre, avatar: editAvatar } : p,
-      ),
-    );
-    setEditandoId(null);
-  };
-
-  const eliminar = (id: string) => {
-    guardar(perfiles.filter((p) => p.id !== id));
-    setConfirmandoId(null);
-    const activo = localStorage.getItem("mirlo-perfil-activo");
-    if (activo && JSON.parse(activo).id === id) {
-      localStorage.removeItem("mirlo-perfil-activo");
+    try {
+      const res = await fetch(`${API_URL}/perfiles/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nombre, avatar: editAvatar }),
+      });
+      if (!res.ok) throw new Error();
+      const actualizado = await res.json();
+      setPerfiles(perfiles.map((p) => (p.id === id ? actualizado : p)));
+      setEditandoId(null);
+    } catch {
+      setError("No se pudo editar el perfil");
     }
   };
+
+  const eliminar = async (id: string) => {
+    try {
+      const res = await fetch(`${API_URL}/perfiles/${id}`, { method: "DELETE" });
+      if (!res.ok && res.status !== 204) throw new Error();
+      setPerfiles(perfiles.filter((p) => p.id !== id));
+      setConfirmandoId(null);
+      const activo = localStorage.getItem("mirlo-perfil-activo");
+      if (activo && JSON.parse(activo).id === id) {
+        localStorage.removeItem("mirlo-perfil-activo");
+      }
+    } catch {
+      setError("No se pudo eliminar el perfil");
+    }
+  };
+
+  if (cargando) {
+    return (
+      <main className="mx-auto flex min-h-[calc(100vh-120px)] max-w-4xl flex-col items-center justify-center px-6">
+        <p className="text-text-secondary">Cargando perfiles…</p>
+      </main>
+    );
+  }
 
   return (
     <main className="mx-auto flex min-h-[calc(100vh-120px)] max-w-4xl flex-col gap-8 px-6 py-12">
@@ -92,6 +116,15 @@ export default function SelectorPerfiles() {
           Cada perfil guarda su propia biblioteca y configuración.
         </p>
       </div>
+
+      {error && (
+        <div className="mx-auto rounded-lg border border-youtube/40 bg-youtube/10 px-4 py-2 text-sm text-youtube">
+          {error}
+          <button onClick={() => setError(null)} className="ml-2 underline">
+            Cerrar
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {perfiles.map((p) => {
