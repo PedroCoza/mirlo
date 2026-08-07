@@ -3,3 +3,7 @@ uvicorn[standard]
 sqlalchemy
 psycopg2-binary
 pydantic-settings
+google-auth
+google-auth-oauthlib
+google-api-python-client
+yt-dlp
