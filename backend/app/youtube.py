@@ -1,49 +1,58 @@
 from pathlib import Path
 
-from google_auth_oauthlib.flow import Flow
+from requests_oauthlib import OAuth2Session
+from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 import yt_dlp
 
 from app.config import settings
 
 SCOPES = ["https://www.googleapis.com/auth/youtube.readonly"]
+AUTH_URI = "https://accounts.google.com/o/oauth2/auth"
+TOKEN_URI = "https://oauth2.googleapis.com/token"
 
 # Almacenamiento en memoria para desarrollo.
 # En producción iría en base de datos o sesión.
 _credenciales: dict[str, object] = {}
 
 
-def _client_config():
-    return {
-        "web": {
-            "client_id": settings.google_client_id,
-            "client_secret": settings.google_client_secret,
-            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-            "token_uri": "https://oauth2.googleapis.com/token",
-            "redirect_uris": [settings.youtube_redirect_uri],
-        }
-    }
-
-
 def iniciar_oauth(perfil_id: str) -> str:
     """Genera la URL de autorización de Google para el perfil dado."""
-    flow = Flow.from_client_config(
-        _client_config(), scopes=SCOPES, state=perfil_id
+    oauth = OAuth2Session(
+        settings.google_client_id,
+        redirect_uri=settings.youtube_redirect_uri,
+        scope=SCOPES,
+        state=perfil_id,
     )
-    flow.redirect_uri = settings.youtube_redirect_uri
-    auth_url, _ = flow.authorization_url(access_type="offline", prompt="consent")
+    auth_url, _ = oauth.authorization_url(
+        AUTH_URI, access_type="offline", prompt="consent"
+    )
     return auth_url
 
 
 def canjear_codigo(code: str, perfil_id: str):
     """Intercambia el código de autorización por credenciales y las guarda."""
-    flow = Flow.from_client_config(
-        _client_config(), scopes=SCOPES, state=perfil_id
+    oauth = OAuth2Session(
+        settings.google_client_id,
+        redirect_uri=settings.youtube_redirect_uri,
+        scope=SCOPES,
+        state=perfil_id,
     )
-    flow.redirect_uri = settings.youtube_redirect_uri
-    flow.fetch_token(code=code)
-    _credenciales[perfil_id] = flow.credentials
-    return flow.credentials
+    token = oauth.fetch_token(
+        TOKEN_URI,
+        code=code,
+        client_secret=settings.google_client_secret,
+    )
+    creds = Credentials(
+        token=token["access_token"],
+        refresh_token=token.get("refresh_token"),
+        token_uri=TOKEN_URI,
+        client_id=settings.google_client_id,
+        client_secret=settings.google_client_secret,
+        scopes=SCOPES,
+    )
+    _credenciales[perfil_id] = creds
+    return creds
 
 
 def hay_credenciales(perfil_id: str) -> bool:
