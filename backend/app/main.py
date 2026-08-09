@@ -1,4 +1,8 @@
-from fastapi import FastAPI, Depends, HTTPException
+import os
+import uuid
+import shutil
+
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
@@ -6,9 +10,13 @@ from pydantic import BaseModel
 
 from app.config import settings
 from app.database import Base, engine, get_db
-from app.models import Perfil
-from app.schemas import PerfilCreate, PerfilUpdate, PerfilOut
+from app.models import Perfil, Contenido
+from app.schemas import PerfilCreate, PerfilUpdate, PerfilOut, ContenidoOut
 from app import youtube
+
+EXTENSIONES_AUDIO = {".mp3", ".wav", ".m4a", ".flac", ".ogg", ".aac"}
+EXTENSIONES_VIDEO = {".mp4", ".mkv", ".avi", ".webm", ".mov"}
+DESCARGAS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "descargas")
 
 app = FastAPI(title="Mirlo API")
 
@@ -113,3 +121,66 @@ def youtube_descargar(data: DescargaRequest):
 def youtube_desconectar(perfil_id: str):
     youtube.desconectar(perfil_id)
     return {"ok": True}
+
+
+@app.post("/biblioteca/subir", response_model=ContenidoOut, status_code=201)
+def subir_archivo(perfil_id: str, archivo: UploadFile = File(...), db: Session = Depends(get_db)):
+    nombre = archivo.filename or "sin_nombre"
+    ext = os.path.splitext(nombre)[1].lower()
+
+    if ext in EXTENSIONES_AUDIO:
+        tipo = "audio"
+    elif ext in EXTENSIONES_VIDEO:
+        tipo = "video"
+    else:
+        raise HTTPException(400, f"Formato no soportado: {ext}")
+
+    perfil = db.query(Perfil).filter(Perfil.id == perfil_id).first()
+    if not perfil:
+        raise HTTPException(404, "Perfil no encontrado")
+
+    carpeta = os.path.join(DESCARGAS_DIR, perfil_id)
+    os.makedirs(carpeta, exist_ok=True)
+
+    nombre_archivo = f"{uuid.uuid4().hex}{ext}"
+    ruta_absoluta = os.path.join(carpeta, nombre_archivo)
+
+    with open(ruta_absoluta, "wb") as f:
+        shutil.copyfileobj(archivo.file, f)
+
+    contenido = Contenido(
+        perfil_id=perfil.id,
+        nombre=nombre,
+        tipo=tipo,
+        ruta=nombre_archivo,
+        origen="local",
+        estado="pendiente",
+    )
+    db.add(contenido)
+    db.commit()
+    db.refresh(contenido)
+    return contenido
+
+
+@app.get("/biblioteca/{perfil_id}", response_model=list[ContenidoOut])
+def listar_biblioteca(perfil_id: str, db: Session = Depends(get_db)):
+    return (
+        db.query(Contenido)
+        .filter(Contenido.perfil_id == perfil_id)
+        .order_by(Contenido.creado_en.desc())
+        .all()
+    )
+
+
+@app.delete("/biblioteca/contenido/{contenido_id}", status_code=204)
+def eliminar_contenido(contenido_id: str, db: Session = Depends(get_db)):
+    contenido = db.query(Contenido).filter(Contenido.id == contenido_id).first()
+    if not contenido:
+        raise HTTPException(404, "Contenido no encontrado")
+
+    ruta_absoluta = os.path.join(DESCARGAS_DIR, str(contenido.perfil_id), contenido.ruta)
+    if os.path.exists(ruta_absoluta):
+        os.remove(ruta_absoluta)
+
+    db.delete(contenido)
+    db.commit()

@@ -23,3 +23,17 @@ class PerfilOut(PerfilBase):
 
     class Config:
         from_attributes = True
+
+
+class ContenidoOut(BaseModel):
+    id: UUID
+    perfil_id: UUID
+    nombre: str
+    tipo: str
+    ruta: str
+    origen: str
+    estado: str
+    creado_en: datetime
+
+    class Config:
+        from_attributes = True
