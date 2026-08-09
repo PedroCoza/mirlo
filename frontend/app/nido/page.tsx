@@ -5,6 +5,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 type Perfil = { id: string; nombre: string; avatar: string };
 type VideoYouTube = { id: string; titulo: string; thumbnail: string };
+type Contenido = {
+  id: string;
+  nombre: string;
+  tipo: string;
+  origen: string;
+  estado: string;
+  creado_en: string;
+};
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -18,6 +26,10 @@ export default function Nido() {
   const [cargandoYoutube, setCargandoYoutube] = useState(false);
   const [errorYoutube, setErrorYoutube] = useState<string | null>(null);
   const [descargando, setDescargando] = useState<string | null>(null);
+  const [archivos, setArchivos] = useState<Contenido[]>([]);
+  const [subiendo, setSubiendo] = useState(false);
+  const [errorBiblioteca, setErrorBiblioteca] = useState<string | null>(null);
+  const [modalSubida, setModalSubida] = useState(false);
   const searchParams = useSearchParams();
 
   useEffect(() => {
@@ -44,6 +56,52 @@ export default function Nido() {
       .then((d) => setYoutubeConectado(d.conectado))
       .catch(() => {});
   }, [perfil]);
+
+  // Carga la biblioteca local del perfil.
+  useEffect(() => {
+    if (!perfil) return;
+    fetch(`${API_URL}/biblioteca/${perfil.id}`)
+      .then((r) => r.json())
+      .then(setArchivos)
+      .catch(() => {});
+  }, [perfil]);
+
+  const subirArchivo = async (file: File) => {
+    if (!perfil) return;
+    setSubiendo(true);
+    setErrorBiblioteca(null);
+    try {
+      const form = new FormData();
+      form.append("archivo", file);
+      const res = await fetch(
+        `${API_URL}/biblioteca/subir?perfil_id=${perfil.id}`,
+        { method: "POST", body: form }
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || "Error al subir");
+      }
+      const nuevo = await res.json();
+      setArchivos((prev) => [nuevo, ...prev]);
+      setModalSubida(false);
+    } catch (e) {
+      setErrorBiblioteca(e instanceof Error ? e.message : "No se pudo subir el archivo");
+    } finally {
+      setSubiendo(false);
+    }
+  };
+
+  const eliminarArchivo = async (id: string) => {
+    try {
+      const res = await fetch(`${API_URL}/biblioteca/contenido/${id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error();
+      setArchivos((prev) => prev.filter((a) => a.id !== id));
+    } catch {
+      setErrorBiblioteca("No se pudo eliminar el archivo");
+    }
+  };
 
   const cargarVideos = () => {
     if (!perfil) return;
@@ -141,16 +199,132 @@ export default function Nido() {
 
       {/* Tab: Biblioteca */}
       {tab === "biblioteca" && (
-        <div className="flex flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-border-light bg-bg-surface p-12 text-center">
-          <span className="text-5xl" aria-hidden>
-            📁
-          </span>
-          <p className="mt-4 text-lg font-medium text-text-secondary">
-            Biblioteca local
-          </p>
-          <p className="mt-1 text-sm text-text-secondary">
-            Próximamente: subida de archivos locales.
-          </p>
+        <div className="flex flex-1 flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-text-secondary">
+              {archivos.length > 0
+                ? `${archivos.length} archivo${archivos.length > 1 ? "s" : ""} en tu biblioteca`
+                : "Sube archivos para empezar"}
+            </p>
+            <button
+              onClick={() => setModalSubida(true)}
+              className="rounded-lg bg-accent-primary px-3 py-1.5 text-sm font-medium text-white"
+            >
+              + Subir archivo
+            </button>
+          </div>
+
+          {errorBiblioteca && (
+            <div className="rounded-lg border border-youtube/40 bg-youtube/10 px-4 py-2 text-sm text-youtube">
+              {errorBiblioteca}
+              <button
+                onClick={() => setErrorBiblioteca(null)}
+                className="ml-2 underline"
+              >
+                Cerrar
+              </button>
+            </div>
+          )}
+
+          {archivos.length === 0 ? (
+            <div className="flex flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-border-light bg-bg-surface p-12 text-center">
+              <span className="text-5xl" aria-hidden>
+                📁
+              </span>
+              <p className="mt-4 text-lg font-medium text-text-secondary">
+                Biblioteca vacía
+              </p>
+              <p className="mt-1 text-sm text-text-secondary">
+                Sube archivos de audio o vídeo para procesarlos.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {archivos.map((a) => (
+                <div
+                  key={a.id}
+                  className="flex flex-col gap-2 rounded-2xl border border-border-c bg-bg-surface p-3"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl" aria-hidden>
+                      {a.tipo === "audio" ? "🎵" : "🎬"}
+                    </span>
+                    <p className="line-clamp-2 flex-1 text-sm font-medium">
+                      {a.nombre}
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="rounded-full bg-bg-elevated px-2 py-0.5 text-xs text-text-secondary">
+                      {a.estado === "pendiente" && "○ Pendiente"}
+                      {a.estado === "procesado" && "✓ Hecho"}
+                      {a.estado === "traducido" && "🌐 Traducido"}
+                    </span>
+                    <button
+                      onClick={() => eliminarArchivo(a.id)}
+                      className="text-xs text-text-secondary hover:text-youtube"
+                    >
+                      Eliminar
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Modal de subida */}
+          {modalSubida && (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+              onClick={() => !subiendo && setModalSubida(false)}
+            >
+              <div
+                className="mx-4 w-full max-w-md rounded-2xl border border-border-c bg-bg-surface p-6"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <h2 className="mb-4 text-lg font-bold">Subir archivo</h2>
+                <label
+                  className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border-light p-8 text-center transition hover:border-accent-primary"
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const file = e.dataTransfer.files[0];
+                    if (file) subirArchivo(file);
+                  }}
+                >
+                  <span className="text-4xl" aria-hidden>
+                    ⬆
+                  </span>
+                  <p className="text-sm text-text-secondary">
+                    Arrastra un archivo o haz clic para seleccionar
+                  </p>
+                  <p className="text-xs text-text-secondary">
+                    MP3, MP4, M4A, WAV, FLAC, OGG, AVI, MKV, WEBM, MOV
+                  </p>
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept="audio/*,video/*"
+                    disabled={subiendo}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) subirArchivo(file);
+                    }}
+                  />
+                </label>
+                {subiendo && (
+                  <p className="mt-3 text-center text-sm text-accent-primary">
+                    Subiendo…
+                  </p>
+                )}
+                <button
+                  onClick={() => !subiendo && setModalSubida(false)}
+                  className="mt-4 w-full rounded-lg border border-border-c px-4 py-2 text-sm text-text-secondary"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
