@@ -16,6 +16,11 @@ out/
 # docker
 .postgres-data/
 
+# pytest
+.coverage
+.pytest_cache/
+descargas/
+
 # editor
 .vscode/
 .idea/
