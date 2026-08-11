@@ -91,6 +91,13 @@ def client(engine):
 
 
 @pytest.fixture()
+def tmp_descargas(tmp_path, monkeypatch):
+    import app.main
+    monkeypatch.setattr(app.main, "DESCARGAS_DIR", str(tmp_path))
+    yield tmp_path
+
+
+@pytest.fixture()
 def perfil_datos():
     return {"nombre": "Test", "avatar": "🦊"}
 
