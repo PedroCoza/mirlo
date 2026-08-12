@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 type Perfil = { id: string; nombre: string; avatar: string };
@@ -16,12 +16,34 @@ type Contenido = {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
+function leerPerfilLocal(): Perfil | null {
+  try {
+    const activo = localStorage.getItem("mirlo-perfil-activo");
+    return activo ? JSON.parse(activo) : null;
+  } catch {
+    return null;
+  }
+}
+
+function suscribirStorage(callback: () => void) {
+  window.addEventListener("storage", callback);
+  return () => window.removeEventListener("storage", callback);
+}
+
 export default function Nido() {
   const router = useRouter();
-  const [perfil, setPerfil] = useState<Perfil | null>(null);
-  const [listo, setListo] = useState(false);
-  const [tab, setTab] = useState<"biblioteca" | "youtube">("biblioteca");
-  const [youtubeConectado, setYoutubeConectado] = useState(false);
+  const searchParams = useSearchParams();
+  const perfil = useSyncExternalStore(
+    suscribirStorage,
+    leerPerfilLocal,
+    () => null
+  );
+  const [tab, setTab] = useState<"biblioteca" | "youtube">(
+    searchParams.get("youtube") === "conectado" ? "youtube" : "biblioteca"
+  );
+  const [youtubeConectado, setYoutubeConectado] = useState(
+    searchParams.get("youtube") === "conectado"
+  );
   const [videos, setVideos] = useState<VideoYouTube[]>([]);
   const [cargandoYoutube, setCargandoYoutube] = useState(false);
   const [errorYoutube, setErrorYoutube] = useState<string | null>(null);
@@ -30,23 +52,13 @@ export default function Nido() {
   const [subiendo, setSubiendo] = useState(false);
   const [errorBiblioteca, setErrorBiblioteca] = useState<string | null>(null);
   const [modalSubida, setModalSubida] = useState(false);
-  const searchParams = useSearchParams();
 
+  // Sin perfil activo, redirige al selector.
   useEffect(() => {
-    const activo = localStorage.getItem("mirlo-perfil-activo");
-    if (activo) {
-      setPerfil(JSON.parse(activo));
+    if (!perfil) {
+      router.replace("/perfiles");
     }
-    setListo(true);
-  }, []);
-
-  // Verifica si acaba de llegar del callback de OAuth.
-  useEffect(() => {
-    if (searchParams.get("youtube") === "conectado") {
-      setYoutubeConectado(true);
-      setTab("youtube");
-    }
-  }, [searchParams]);
+  }, [perfil, router]);
 
   // Comprueba el estado de conexión de YouTube al cargar.
   useEffect(() => {
@@ -151,13 +163,7 @@ export default function Nido() {
       .catch(() => setErrorYoutube("No se pudo desconectar"));
   };
 
-  if (!listo) return null;
-
-  // Sin perfil activo, vuelve al selector.
-  if (!perfil) {
-    router.replace("/perfiles");
-    return null;
-  }
+  if (!perfil) return null;
 
   return (
     <main className="mx-auto flex min-h-[calc(100vh-120px)] max-w-4xl flex-col gap-6 px-6 py-12">
