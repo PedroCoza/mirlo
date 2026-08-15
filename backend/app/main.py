@@ -13,6 +13,7 @@ from app.database import Base, engine, get_db
 from app.models import Perfil, Contenido
 from app.schemas import PerfilCreate, PerfilUpdate, PerfilOut, ContenidoOut
 from app import youtube
+from app.transcripcion import transcribir, preprocesar_audio
 
 EXTENSIONES_AUDIO = {".mp3", ".wav", ".m4a", ".flac", ".ogg", ".aac"}
 EXTENSIONES_VIDEO = {".mp4", ".mkv", ".avi", ".webm", ".mov"}
@@ -184,3 +185,26 @@ def eliminar_contenido(contenido_id: str, db: Session = Depends(get_db)):
 
     db.delete(contenido)
     db.commit()
+
+
+@app.post("/transcribir/{contenido_id}")
+def transcribir_contenido(contenido_id: str, db: Session = Depends(get_db)):
+    contenido = db.query(Contenido).filter(Contenido.id == contenido_id).first()
+    if not contenido:
+        raise HTTPException(404, "Contenido no encontrado")
+
+    ruta_original = os.path.join(DESCARGAS_DIR, str(contenido.perfil_id), contenido.ruta)
+    if not os.path.exists(ruta_original):
+        raise HTTPException(500, "Archivo no encontrado en disco")
+
+    ruta_audio = preprocesar_audio(ruta_original)
+    try:
+        segmentos = transcribir(ruta_audio)
+    finally:
+        if os.path.exists(ruta_audio):
+            os.remove(ruta_audio)
+
+    contenido.estado = "procesado"
+    db.commit()
+
+    return {"segmentos": segmentos}
