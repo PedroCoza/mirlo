@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import String, DateTime, ForeignKey, func
+from sqlalchemy import String, DateTime, ForeignKey, Integer, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -16,6 +16,10 @@ class Perfil(Base):
     )
     nombre: Mapped[str] = mapped_column(String(100), nullable=False)
     avatar: Mapped[str] = mapped_column(String(10), default="🐣")
+    modelo_whisper: Mapped[str] = mapped_column(String(20), default="base")
+    compute_type: Mapped[str] = mapped_column(String(10), default="int8")
+    batch_size: Mapped[int] = mapped_column(Integer, default=8)
+    hf_token: Mapped[str | None] = mapped_column(String(200), nullable=True)
     creado_en: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now()
     )

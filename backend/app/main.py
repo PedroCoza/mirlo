@@ -2,6 +2,7 @@ import os
 import uuid
 import shutil
 
+import torch
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
@@ -208,3 +209,52 @@ def transcribir_contenido(contenido_id: str, db: Session = Depends(get_db)):
     db.commit()
 
     return {"segmentos": segmentos}
+
+
+class ConfigUpdate(BaseModel):
+    modelo: str
+    compute_type: str
+    batch_size: int
+    hf_token: str | None = None
+
+
+@app.get("/config")
+def obtener_config(perfil_id: str, db: Session = Depends(get_db)):
+    perfil = db.query(Perfil).filter(Perfil.id == perfil_id).first()
+    if not perfil:
+        raise HTTPException(404, "Perfil no encontrado")
+
+    gpu = torch.cuda.is_available()
+    return {
+        "gpu_disponible": gpu,
+        "gpu_nombre": torch.cuda.get_device_name(0) if gpu else None,
+        "vram_mb": round(torch.cuda.get_device_properties(0).total_memory / 1024**2)
+        if gpu
+        else None,
+        "recomendado": {
+            "modelo": "base",
+            "compute_type": "float16" if gpu else "int8",
+            "batch_size": 8,
+        },
+        "actual": {
+            "modelo": perfil.modelo_whisper,
+            "compute_type": perfil.compute_type,
+            "batch_size": perfil.batch_size,
+            "hf_token_configurado": bool(perfil.hf_token),
+        },
+    }
+
+
+@app.put("/config/{perfil_id}")
+def guardar_config(perfil_id: str, config: ConfigUpdate, db: Session = Depends(get_db)):
+    perfil = db.query(Perfil).filter(Perfil.id == perfil_id).first()
+    if not perfil:
+        raise HTTPException(404, "Perfil no encontrado")
+
+    perfil.modelo_whisper = config.modelo
+    perfil.compute_type = config.compute_type
+    perfil.batch_size = config.batch_size
+    if config.hf_token:
+        perfil.hf_token = config.hf_token
+    db.commit()
+    return {"ok": True}
