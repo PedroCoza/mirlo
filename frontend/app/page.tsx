@@ -38,12 +38,21 @@ export default function Landing() {
         Comenzar
       </a>
 
-      <p className="mt-2 text-xs text-text-secondary">
-        API:{" "}
-        {apiEstado === "cargando" && "conectando…"}
-        {apiEstado === "ok" && "🟢 conectada"}
-        {apiEstado === "error" && "🔴 sin conexión"}
-      </p>
+      <div className="mt-2 flex items-center justify-center gap-3 text-xs text-text-secondary">
+        <p>
+          API:{" "}
+          {apiEstado === "cargando" && "conectando…"}
+          {apiEstado === "ok" && "🟢 conectada"}
+          {apiEstado === "error" && "🔴 sin conexión"}
+        </p>
+        <a
+          href="/configuracion"
+          className="hover:text-text-primary"
+          title="Configuración"
+        >
+          ⚙
+        </a>
+      </div>
     </main>
   );
 }
