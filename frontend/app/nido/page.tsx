@@ -16,13 +16,19 @@ type Contenido = {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
+let _rawCache: string | null | undefined;
+let _perfilCache: Perfil | null = null;
+
 function leerPerfilLocal(): Perfil | null {
+  const raw = localStorage.getItem("mirlo-perfil-activo");
+  if (raw === _rawCache) return _perfilCache;
+  _rawCache = raw;
   try {
-    const activo = localStorage.getItem("mirlo-perfil-activo");
-    return activo ? JSON.parse(activo) : null;
+    _perfilCache = raw ? JSON.parse(raw) : null;
   } catch {
-    return null;
+    _perfilCache = null;
   }
+  return _perfilCache;
 }
 
 function suscribirStorage(callback: () => void) {
