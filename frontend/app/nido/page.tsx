@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Image from "next/image";
 
 type Perfil = { id: string; nombre: string; avatar: string };
 type VideoYouTube = { id: string; titulo: string; thumbnail: string };
@@ -405,9 +406,12 @@ export default function Nido() {
                   key={v.id}
                   className="flex flex-col gap-2 rounded-2xl border border-border-c bg-bg-surface p-3"
                 >
-                  <img
+                  <Image
                     src={v.thumbnail}
                     alt={v.titulo}
+                    width={320}
+                    height={180}
+                    unoptimized
                     className="aspect-video w-full rounded-lg object-cover"
                   />
                   <p className="line-clamp-2 text-sm font-medium">{v.titulo}</p>
