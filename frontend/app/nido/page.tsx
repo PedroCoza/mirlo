@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import Image from "next/image";
 
 type Perfil = { id: string; nombre: string; avatar: string };
@@ -60,12 +61,20 @@ export default function Nido() {
   const [errorBiblioteca, setErrorBiblioteca] = useState<string | null>(null);
   const [modalSubida, setModalSubida] = useState(false);
 
-  // Sin perfil activo, redirige al selector.
+  // En recarga completa el perfil llega null desde el snapshot del
+  // servidor hasta que hidrata; sin este flag el guard redirige a
+  // /perfiles antes de leer localStorage.
+  const hidratado = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
+
   useEffect(() => {
-    if (!perfil) {
+    if (hidratado && !perfil) {
       router.replace("/perfiles");
     }
-  }, [perfil, router]);
+  }, [hidratado, perfil, router]);
 
   // Comprueba el estado de conexión de YouTube al cargar.
   useEffect(() => {
@@ -431,12 +440,12 @@ export default function Nido() {
         </div>
       )}
 
-      <a
+      <Link
         href="/perfiles"
         className="mx-auto text-sm text-text-secondary hover:text-text-primary"
       >
         ← Cambiar de perfil
-      </a>
+      </Link>
     </main>
   );
 }

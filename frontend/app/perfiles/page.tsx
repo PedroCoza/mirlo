@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 type Perfil = {
@@ -191,7 +192,7 @@ export default function SelectorPerfiles() {
                   {p.avatar}
                 </span>
                 <p className="text-sm font-medium">
-                  ¿Eliminar "{p.nombre}"?
+                  ¿Eliminar «{p.nombre}»?
                 </p>
                 <p className="text-xs text-text-secondary">
                   Esta acción no se puede deshacer.
@@ -317,12 +318,12 @@ export default function SelectorPerfiles() {
         </div>
       </div>
 
-      <a
+      <Link
         href="/"
         className="mx-auto text-sm text-text-secondary hover:text-text-primary"
       >
         ← Volver al inicio
-      </a>
+      </Link>
     </main>
   );
 }

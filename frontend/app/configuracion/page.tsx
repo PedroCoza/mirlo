@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 type Perfil = { id: string; nombre: string; avatar: string };
 
@@ -69,12 +70,20 @@ export default function Configuracion() {
       .catch(() => {});
   }, [perfil]);
 
-  // Sin perfil, redirige al selector.
+  // En recarga completa el perfil llega null desde el snapshot del
+  // servidor hasta que hidrata; sin este flag el guard redirige a
+  // /perfiles antes de leer localStorage.
+  const hidratado = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
+
   useEffect(() => {
-    if (!perfil) {
+    if (hidratado && !perfil) {
       router.replace("/perfiles");
     }
-  }, [perfil, router]);
+  }, [hidratado, perfil, router]);
 
   const guardar = async () => {
     if (!perfil) return;
@@ -214,12 +223,12 @@ export default function Configuracion() {
         {guardado && (
           <span className="text-sm text-accent-secondary">✓ Guardado</span>
         )}
-        <a
-          href="/nido"
+        <Link
+          href="/"
           className="ml-auto text-sm text-text-secondary hover:text-text-primary"
         >
-          ← Volver al Nido
-        </a>
+          ← Volver a Inicio
+        </Link>
       </div>
     </main>
   );

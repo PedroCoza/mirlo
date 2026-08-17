@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function Legal() {
   return (
     <main className="mx-auto flex min-h-[calc(100vh-120px)] max-w-2xl flex-col gap-6 px-6 py-12">
@@ -42,9 +44,9 @@ export default function Legal() {
         </ul>
       </section>
 
-      <a href="/" className="text-sm text-accent-primary hover:underline">
+      <Link href="/" className="text-sm text-accent-primary hover:underline">
         ← Volver al inicio
-      </a>
+      </Link>
     </main>
   );
 }
