@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -60,6 +60,10 @@ export default function Nido() {
   const [subiendo, setSubiendo] = useState(false);
   const [errorBiblioteca, setErrorBiblioteca] = useState<string | null>(null);
   const [modalSubida, setModalSubida] = useState(false);
+  const [procesando, setProcesando] = useState<string | null>(null);
+  const [busqueda, setBusqueda] = useState("");
+  const [filtroEstado, setFiltroEstado] = useState<"todos" | "pendiente" | "procesado">("todos");
+  const [orden, setOrden] = useState<"recientes" | "nombre" | "estado">("recientes");
 
   // En recarga completa el perfil llega null desde el snapshot del
   // servidor hasta que hidrata; sin este flag el guard redirige a
@@ -131,6 +135,24 @@ export default function Nido() {
     }
   };
 
+  const procesarContenido = async (id: string) => {
+    setProcesando(id);
+    setErrorBiblioteca(null);
+    try {
+      const res = await fetch(`${API_URL}/transcribir/${id}`, {
+        method: "POST",
+      });
+      if (!res.ok) throw new Error();
+      setArchivos((prev) =>
+        prev.map((a) => (a.id === id ? { ...a, estado: "procesado" } : a))
+      );
+    } catch {
+      setErrorBiblioteca("No se pudo transcribir el archivo");
+    } finally {
+      setProcesando(null);
+    }
+  };
+
   const cargarVideos = () => {
     if (!perfil) return;
     setCargandoYoutube(true);
@@ -178,6 +200,28 @@ export default function Nido() {
       })
       .catch(() => setErrorYoutube("No se pudo desconectar"));
   };
+
+  const archivosFiltrados = useMemo(() => {
+    let lista = archivos;
+    if (busqueda) {
+      const q = busqueda.toLowerCase();
+      lista = lista.filter((a) => a.nombre.toLowerCase().includes(q));
+    }
+    if (filtroEstado !== "todos") {
+      lista = lista.filter((a) => a.estado === filtroEstado);
+    }
+    if (orden === "nombre") {
+      lista = [...lista].sort((a, b) => a.nombre.localeCompare(b.nombre));
+    } else if (orden === "estado") {
+      const peso: Record<string, number> = {
+        pendiente: 0,
+        procesado: 1,
+        traducido: 2,
+      };
+      lista = [...lista].sort((a, b) => peso[a.estado] - peso[b.estado]);
+    }
+    return lista;
+  }, [archivos, busqueda, filtroEstado, orden]);
 
   if (!perfil) return null;
 
@@ -236,6 +280,44 @@ export default function Nido() {
             </button>
           </div>
 
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="text"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Buscar por nombre…"
+              className="min-w-40 flex-1 rounded-lg border border-border-c bg-bg-surface px-3 py-1.5 text-sm"
+            />
+            <div className="flex gap-1">
+              {(["todos", "pendiente", "procesado"] as const).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setFiltroEstado(f)}
+                  className={`rounded-lg px-2.5 py-1.5 text-xs font-medium ${
+                    filtroEstado === f
+                      ? "bg-accent-primary/20 text-accent-primary"
+                      : "text-text-secondary hover:text-text-primary"
+                  }`}
+                >
+                  {f === "todos"
+                    ? "Todos"
+                    : f === "pendiente"
+                      ? "Pendientes"
+                      : "Procesados"}
+                </button>
+              ))}
+            </div>
+            <select
+              value={orden}
+              onChange={(e) => setOrden(e.target.value as typeof orden)}
+              className="rounded-lg border border-border-c bg-bg-surface px-2 py-1.5 text-xs text-text-secondary"
+            >
+              <option value="recientes">Recientes</option>
+              <option value="nombre">Nombre</option>
+              <option value="estado">Estado</option>
+            </select>
+          </div>
+
           {errorBiblioteca && (
             <div className="rounded-lg border border-youtube/40 bg-youtube/10 px-4 py-2 text-sm text-youtube">
               {errorBiblioteca}
@@ -260,9 +342,13 @@ export default function Nido() {
                 Sube archivos de audio o vídeo para procesarlos.
               </p>
             </div>
+          ) : archivosFiltrados.length === 0 ? (
+            <p className="py-8 text-center text-sm text-text-secondary">
+              Sin resultados para «{busqueda}»
+            </p>
           ) : (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {archivos.map((a) => (
+              {archivosFiltrados.map((a) => (
                 <div
                   key={a.id}
                   className="flex flex-col gap-2 rounded-2xl border border-border-c bg-bg-surface p-3"
@@ -281,12 +367,23 @@ export default function Nido() {
                       {a.estado === "procesado" && "✓ Hecho"}
                       {a.estado === "traducido" && "🌐 Traducido"}
                     </span>
-                    <button
-                      onClick={() => eliminarArchivo(a.id)}
-                      className="text-xs text-text-secondary hover:text-youtube"
-                    >
-                      Eliminar
-                    </button>
+                    <div className="flex items-center gap-2">
+                      {a.estado === "pendiente" && (
+                        <button
+                          onClick={() => procesarContenido(a.id)}
+                          disabled={procesando === a.id}
+                          className="rounded-lg bg-accent-primary/20 px-2.5 py-1 text-xs font-medium text-accent-primary disabled:opacity-50"
+                        >
+                          {procesando === a.id ? "Procesando…" : "▶ Procesar"}
+                        </button>
+                      )}
+                      <button
+                        onClick={() => eliminarArchivo(a.id)}
+                        className="text-xs text-text-secondary hover:text-youtube"
+                      >
+                        Eliminar
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
