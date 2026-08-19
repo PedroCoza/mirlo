@@ -38,6 +38,10 @@ function suscribirStorage(callback: () => void) {
   return () => window.removeEventListener("storage", callback);
 }
 
+function normalizarTexto(s: string): string {
+  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
 export default function Nido() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -204,8 +208,8 @@ export default function Nido() {
   const archivosFiltrados = useMemo(() => {
     let lista = archivos;
     if (busqueda) {
-      const q = busqueda.toLowerCase();
-      lista = lista.filter((a) => a.nombre.toLowerCase().includes(q));
+      const q = normalizarTexto(busqueda);
+      lista = lista.filter((a) => normalizarTexto(a.nombre).includes(q));
     }
     if (filtroEstado !== "todos") {
       lista = lista.filter((a) => a.estado === filtroEstado);
