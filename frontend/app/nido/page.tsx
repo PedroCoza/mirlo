@@ -361,9 +361,12 @@ export default function Nido() {
                     <span className="text-2xl" aria-hidden>
                       {a.tipo === "audio" ? "🎵" : "🎬"}
                     </span>
-                    <p className="line-clamp-2 flex-1 text-sm font-medium">
+                    <Link
+                      href={`/incubadora/${a.id}`}
+                      className="line-clamp-2 flex-1 text-sm font-medium hover:text-accent-primary"
+                    >
                       {a.nombre}
-                    </p>
+                    </Link>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="rounded-full bg-bg-elevated px-2 py-0.5 text-xs text-text-secondary">

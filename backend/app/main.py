@@ -5,7 +5,7 @@ import shutil
 import torch
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
@@ -18,6 +18,12 @@ from app.transcripcion import transcribir, preprocesar_audio
 
 EXTENSIONES_AUDIO = {".mp3", ".wav", ".m4a", ".flac", ".ogg", ".aac"}
 EXTENSIONES_VIDEO = {".mp4", ".mkv", ".avi", ".webm", ".mov"}
+MEDIA_TYPES = {
+    ".mp3": "audio/mpeg", ".wav": "audio/wav", ".m4a": "audio/mp4",
+    ".flac": "audio/flac", ".ogg": "audio/ogg", ".aac": "audio/aac",
+    ".mp4": "video/mp4", ".mkv": "video/x-matroska", ".avi": "video/x-msvideo",
+    ".webm": "video/webm", ".mov": "video/quicktime",
+}
 DESCARGAS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "descargas")
 
 app = FastAPI(title="Mirlo API")
@@ -172,6 +178,26 @@ def listar_biblioteca(perfil_id: str, db: Session = Depends(get_db)):
         .order_by(Contenido.creado_en.desc())
         .all()
     )
+
+
+@app.get("/biblioteca/contenido/{contenido_id}", response_model=ContenidoOut)
+def obtener_contenido(contenido_id: str, db: Session = Depends(get_db)):
+    contenido = db.query(Contenido).filter(Contenido.id == contenido_id).first()
+    if not contenido:
+        raise HTTPException(404, "Contenido no encontrado")
+    return contenido
+
+
+@app.get("/biblioteca/archivo/{contenido_id}")
+def servir_archivo(contenido_id: str, db: Session = Depends(get_db)):
+    contenido = db.query(Contenido).filter(Contenido.id == contenido_id).first()
+    if not contenido:
+        raise HTTPException(404, "Contenido no encontrado")
+    ruta = os.path.join(DESCARGAS_DIR, str(contenido.perfil_id), contenido.ruta)
+    if not os.path.exists(ruta):
+        raise HTTPException(404, "Archivo no encontrado en disco")
+    ext = os.path.splitext(contenido.ruta)[1].lower()
+    return FileResponse(ruta, media_type=MEDIA_TYPES.get(ext, "application/octet-stream"))
 
 
 @app.delete("/biblioteca/contenido/{contenido_id}", status_code=204)
