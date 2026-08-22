@@ -79,15 +79,20 @@ export default function Incubadora() {
       const res = await fetch(`${API_URL}/transcribir/${params.id}`, {
         method: "POST",
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || "No se pudo transcribir");
+      }
       const data = await res.json();
       sessionStorage.setItem(
         `mirlo-transcripcion-${params.id}`,
         JSON.stringify(data.segmentos),
       );
       router.push(`/mirlo/${params.id}`);
-    } catch {
-      setError("No se pudo transcribir el contenido");
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "No se pudo transcribir el contenido",
+      );
       setTranscribiendo(false);
     }
   };

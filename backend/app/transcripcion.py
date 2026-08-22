@@ -34,7 +34,7 @@ def transcribir(ruta_audio):
 def preprocesar_audio(ruta_entrada):
     # Convierte a WAV 16kHz mono con ffmpeg (necesario para vídeo).
     ruta_wav = os.path.splitext(ruta_entrada)[0] + "_proc.wav"
-    subprocess.run(
+    resultado = subprocess.run(
         [
             "ffmpeg",
             "-y",
@@ -50,4 +50,7 @@ def preprocesar_audio(ruta_entrada):
         ],
         capture_output=True,
     )
+
+    if resultado.returncode != 0 or not os.path.exists(ruta_wav):
+        raise ValueError("El archivo no contiene pista de audio")
     return ruta_wav

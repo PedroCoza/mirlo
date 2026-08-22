@@ -224,7 +224,11 @@ def transcribir_contenido(contenido_id: str, db: Session = Depends(get_db)):
     if not os.path.exists(ruta_original):
         raise HTTPException(500, "Archivo no encontrado en disco")
 
-    ruta_audio = preprocesar_audio(ruta_original)
+    try:
+        ruta_audio = preprocesar_audio(ruta_original)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
     try:
         segmentos = transcribir(ruta_audio)
     finally:
