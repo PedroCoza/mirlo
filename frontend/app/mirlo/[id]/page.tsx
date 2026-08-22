@@ -13,7 +13,12 @@ type Contenido = {
   estado: string;
   creado_en: string;
 };
-type Segmento = { start: number; end: number; text: string };
+type Segmento = {
+  start: number;
+  end: number;
+  text: string;
+  modificado?: boolean;
+};
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -56,6 +61,7 @@ export default function Mirlo() {
   const [error, setError] = useState<string | null>(null);
   const [tiempoActual, setTiempoActual] = useState(0);
   const [autoSeguir, setAutoSeguir] = useState(true);
+  const [editando, setEditando] = useState<number | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const listaRef = useRef<HTMLDivElement | null>(null);
@@ -116,6 +122,17 @@ export default function Mirlo() {
     const el = listaRef.current.querySelector(`[data-seg="${segmentoActivo}"]`);
     el?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [tiempoActual, autoSeguir, segmentoActivo]);
+
+  const guardarSegmento = (i: number, texto: string) => {
+    setEditando(null);
+    const textoLimpio = texto.trim();
+    setSegmentos((prev) => {
+      if (!prev || prev[i].text === textoLimpio) return prev;
+      const nuevos = [...prev];
+      nuevos[i] = { ...nuevos[i], text: textoLimpio, modificado: true };
+      return nuevos;
+    });
+  };
 
   const formatearTiempo = (t: number) => {
     const m = Math.floor(t / 60);
@@ -209,16 +226,34 @@ export default function Mirlo() {
                     key={i}
                     data-seg={i}
                     onClick={() => saltarA(seg.start)}
+                    onDoubleClick={() => setEditando(i)}
                     className={`flex cursor-pointer gap-3 rounded-lg px-2 py-1.5 transition ${
                       i === segmentoActivo
                         ? "bg-accent-primary/10"
                         : "hover:bg-bg-elevated"
-                    }`}
+                    } ${seg.modificado ? "border-l-2 border-accent-primary" : ""}`}
                   >
                     <span className="shrink-0 pt-0.5 font-mono text-xs text-text-secondary">
                       {formatearTiempo(seg.start)}
                     </span>
-                    <p className="text-sm leading-relaxed">{seg.text}</p>
+                    {editando === i ? (
+                      <textarea
+                        autoFocus
+                        defaultValue={seg.text}
+                        onBlur={(e) => guardarSegmento(i, e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault();
+                            e.currentTarget.blur();
+                          }
+                        }}
+                        rows={2}
+                        className="w-full resize-none rounded-lg border border-accent-primary/40 bg-bg-elevated px-2 py-1 text-sm leading-relaxed"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    ) : (
+                      <p className="text-sm leading-relaxed">{seg.text}</p>
+                    )}
                   </div>
                 ))}
               </div>
