@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -54,6 +54,13 @@ export default function Mirlo() {
   const [contenido, setContenido] = useState<Contenido | null>(null);
   const [segmentos, setSegmentos] = useState<Segmento[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [tiempoActual, setTiempoActual] = useState(0);
+  const [autoSeguir, setAutoSeguir] = useState(true);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const listaRef = useRef<HTMLDivElement | null>(null);
+
+  const reproductor = () => videoRef.current ?? audioRef.current;
 
   useEffect(() => {
     if (hidratado && !perfil) {
@@ -82,6 +89,33 @@ export default function Mirlo() {
       })
       .catch(() => setError("No se pudo cargar el contenido"));
   }, [params.id]);
+
+  const segmentoActivo =
+    segmentos?.findIndex(
+      (seg) => tiempoActual >= seg.start && tiempoActual < seg.end,
+    ) ?? -1;
+
+  const alActualizarTiempo = () => {
+    const rep = reproductor();
+    if (rep) {
+      setTiempoActual(rep.currentTime);
+    }
+  };
+
+  const saltarA = (t: number) => {
+    const rep = reproductor();
+    if (rep) {
+      rep.currentTime = t;
+      setTiempoActual(t);
+    }
+  };
+
+  // Auto-follow: mantiene el segmento activo visible mientras suena.
+  useEffect(() => {
+    if (!autoSeguir || segmentoActivo < 0 || !listaRef.current) return;
+    const el = listaRef.current.querySelector(`[data-seg="${segmentoActivo}"]`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [tiempoActual, autoSeguir, segmentoActivo]);
 
   const formatearTiempo = (t: number) => {
     const m = Math.floor(t / 60);
@@ -123,14 +157,18 @@ export default function Mirlo() {
             <div className="rounded-2xl border border-border-c bg-bg-surface p-4">
               {contenido.tipo === "video" ? (
                 <video
+                  ref={videoRef}
                   src={`${API_URL}/biblioteca/archivo/${params.id}`}
                   controls
+                  onTimeUpdate={alActualizarTiempo}
                   className="aspect-video w-full rounded-lg"
                 />
               ) : (
                 <audio
+                  ref={audioRef}
                   src={`${API_URL}/biblioteca/archivo/${params.id}`}
                   controls
+                  onTimeUpdate={alActualizarTiempo}
                   className="w-full"
                 />
               )}
@@ -139,7 +177,17 @@ export default function Mirlo() {
 
           {/* Lista de segmentos */}
           <div className="flex flex-col">
-            <h2 className="mb-2 text-lg font-semibold">Transcripción</h2>
+            <div className="mb-2 flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Transcripción</h2>
+              <label className="flex cursor-pointer items-center gap-2 text-xs text-text-secondary">
+                <input
+                  type="checkbox"
+                  checked={autoSeguir}
+                  onChange={(e) => setAutoSeguir(e.target.checked)}
+                />
+                Auto-seguir
+              </label>
+            </div>
             {segmentos === null ? (
               <p className="rounded-xl border border-dashed border-border-light bg-bg-surface p-6 text-sm text-text-secondary">
                 No hay transcripción para este contenido.{" "}
@@ -152,9 +200,21 @@ export default function Mirlo() {
                 .
               </p>
             ) : (
-              <div className="flex max-h-[calc(100vh-260px)] flex-col gap-1 overflow-y-auto rounded-2xl border border-border-c bg-bg-surface p-3">
+              <div
+                ref={listaRef}
+                className="flex max-h-[calc(100vh-260px)] flex-col gap-1 overflow-y-auto rounded-2xl border border-border-c bg-bg-surface p-3"
+              >
                 {segmentos.map((seg, i) => (
-                  <div key={i} className="flex gap-3 rounded-lg px-2 py-1.5">
+                  <div
+                    key={i}
+                    data-seg={i}
+                    onClick={() => saltarA(seg.start)}
+                    className={`flex cursor-pointer gap-3 rounded-lg px-2 py-1.5 transition ${
+                      i === segmentoActivo
+                        ? "bg-accent-primary/10"
+                        : "hover:bg-bg-elevated"
+                    }`}
+                  >
                     <span className="shrink-0 pt-0.5 font-mono text-xs text-text-secondary">
                       {formatearTiempo(seg.start)}
                     </span>
