@@ -227,19 +227,49 @@ export default function Mirlo() {
                     data-seg={i}
                     onClick={() => saltarA(seg.start)}
                     onDoubleClick={() => setEditando(i)}
-                    className={`flex cursor-pointer gap-3 rounded-lg px-2 py-1.5 transition ${
+                    className={`group flex cursor-pointer gap-3 rounded-lg px-2 py-1.5 transition ${
                       i === segmentoActivo
                         ? "bg-accent-primary/10"
                         : "hover:bg-bg-elevated"
                     } ${seg.modificado ? "border-l-2 border-accent-primary" : ""}`}
                   >
-                    <span className="shrink-0 pt-0.5 font-mono text-xs text-text-secondary">
-                      {formatearTiempo(seg.start)}
-                    </span>
+                    <div className="flex shrink-0 flex-col items-center">
+                      <span className="pt-0.5 font-mono text-xs text-text-secondary">
+                        {formatearTiempo(seg.start)}
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditando(i);
+                        }}
+                        aria-label="Editar segmento"
+                        className="cursor-pointer opacity-0 transition hover:text-text-primary group-hover:opacity-100"
+                      >
+                        <svg
+                          width="12"
+                          height="12"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="text-text-secondary"
+                        >
+                          <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                        </svg>
+                      </button>
+                    </div>
                     {editando === i ? (
                       <textarea
                         autoFocus
                         defaultValue={seg.text}
+                        ref={(el) => {
+                          if (el) {
+                            el.style.height = "auto";
+                            el.style.height = el.scrollHeight + "px";
+                          }
+                        }}
                         onBlur={(e) => guardarSegmento(i, e.target.value)}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" && !e.shiftKey) {
@@ -247,7 +277,6 @@ export default function Mirlo() {
                             e.currentTarget.blur();
                           }
                         }}
-                        rows={2}
                         className="w-full resize-none rounded-lg border border-accent-primary/40 bg-bg-elevated px-2 py-1 text-sm leading-relaxed"
                         onClick={(e) => e.stopPropagation()}
                       />
