@@ -13,6 +13,7 @@ type Contenido = {
   estado: string;
   creado_en: string;
 };
+type Segmento = { start: number; end: number; text: string };
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -51,6 +52,7 @@ export default function Mirlo() {
   );
 
   const [contenido, setContenido] = useState<Contenido | null>(null);
+  const [segmentos, setSegmentos] = useState<Segmento[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -65,14 +67,32 @@ export default function Mirlo() {
         if (!r.ok) throw new Error();
         return r.json();
       })
-      .then(setContenido)
+      .then((c) => {
+        setContenido(c);
+        const raw = sessionStorage.getItem(
+          `mirlo-transcripcion-${params.id}`,
+        );
+        if (raw) {
+          try {
+            setSegmentos(JSON.parse(raw));
+          } catch {
+            // transcripción corrupta en sessionStorage, se ignora
+          }
+        }
+      })
       .catch(() => setError("No se pudo cargar el contenido"));
   }, [params.id]);
+
+  const formatearTiempo = (t: number) => {
+    const m = Math.floor(t / 60);
+    const s = Math.floor(t % 60);
+    return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  };
 
   if (!perfil) return null;
 
   return (
-    <main className="mx-auto flex min-h-[calc(100vh-120px)] max-w-3xl flex-col gap-6 px-6 py-12">
+    <main className="mx-auto flex min-h-[calc(100vh-120px)] max-w-6xl flex-col gap-6 px-6 py-12">
       <Link
         href={`/incubadora/${params.id}`}
         className="text-sm text-text-secondary hover:text-text-primary"
@@ -90,27 +110,58 @@ export default function Mirlo() {
       )}
 
       {contenido && (
-        <div className="flex flex-col gap-3">
-          <div>
-            <h1 className="text-2xl font-bold">{contenido.nombre}</h1>
-            <p className="text-sm text-text-secondary">
-              {contenido.tipo === "audio" ? "Audio" : "Vídeo"} ·{" "}
-              {new Date(contenido.creado_en).toLocaleDateString("es-ES")}
-            </p>
+        <div className="grid flex-1 items-start gap-6 lg:grid-cols-[minmax(320px,2fr)_3fr]">
+          {/* Reproductor */}
+          <div className="flex flex-col gap-3">
+            <div>
+              <h1 className="text-2xl font-bold">{contenido.nombre}</h1>
+              <p className="text-sm text-text-secondary">
+                {contenido.tipo === "audio" ? "Audio" : "Vídeo"} ·{" "}
+                {new Date(contenido.creado_en).toLocaleDateString("es-ES")}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-border-c bg-bg-surface p-4">
+              {contenido.tipo === "video" ? (
+                <video
+                  src={`${API_URL}/biblioteca/archivo/${params.id}`}
+                  controls
+                  className="aspect-video w-full rounded-lg"
+                />
+              ) : (
+                <audio
+                  src={`${API_URL}/biblioteca/archivo/${params.id}`}
+                  controls
+                  className="w-full"
+                />
+              )}
+            </div>
           </div>
-          <div className="rounded-2xl border border-border-c bg-bg-surface p-4">
-            {contenido.tipo === "video" ? (
-              <video
-                src={`${API_URL}/biblioteca/archivo/${params.id}`}
-                controls
-                className="aspect-video w-full rounded-lg"
-              />
+
+          {/* Lista de segmentos */}
+          <div className="flex flex-col">
+            <h2 className="mb-2 text-lg font-semibold">Transcripción</h2>
+            {segmentos === null ? (
+              <p className="rounded-xl border border-dashed border-border-light bg-bg-surface p-6 text-sm text-text-secondary">
+                No hay transcripción para este contenido.{" "}
+                <Link
+                  href={`/incubadora/${params.id}`}
+                  className="text-accent-primary hover:underline"
+                >
+                  Genérala desde la Incubadora
+                </Link>
+                .
+              </p>
             ) : (
-              <audio
-                src={`${API_URL}/biblioteca/archivo/${params.id}`}
-                controls
-                className="w-full"
-              />
+              <div className="flex max-h-[calc(100vh-260px)] flex-col gap-1 overflow-y-auto rounded-2xl border border-border-c bg-bg-surface p-3">
+                {segmentos.map((seg, i) => (
+                  <div key={i} className="flex gap-3 rounded-lg px-2 py-1.5">
+                    <span className="shrink-0 pt-0.5 font-mono text-xs text-text-secondary">
+                      {formatearTiempo(seg.start)}
+                    </span>
+                    <p className="text-sm leading-relaxed">{seg.text}</p>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         </div>
