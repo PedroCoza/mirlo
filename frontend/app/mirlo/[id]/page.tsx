@@ -116,12 +116,21 @@ export default function Mirlo() {
     }
   };
 
-  // Auto-follow: mantiene el segmento activo visible mientras suena.
+  // Auto-follow: desplaza solo al cambiar de segmento y si no es visible.
   useEffect(() => {
     if (!autoSeguir || segmentoActivo < 0 || !listaRef.current) return;
-    const el = listaRef.current.querySelector(`[data-seg="${segmentoActivo}"]`);
-    el?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }, [tiempoActual, autoSeguir, segmentoActivo]);
+    const el = listaRef.current.querySelector(
+      `[data-seg="${segmentoActivo}"]`,
+    ) as HTMLElement | null;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const contenedor = listaRef.current.getBoundingClientRect();
+    const visible =
+      rect.top >= contenedor.top && rect.bottom <= contenedor.bottom;
+    if (!visible) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [autoSeguir, segmentoActivo]);
 
   const guardarSegmento = (i: number, texto: string) => {
     setEditando(null);
