@@ -62,6 +62,8 @@ export default function Mirlo() {
   const [tiempoActual, setTiempoActual] = useState(0);
   const [autoSeguir, setAutoSeguir] = useState(true);
   const [editando, setEditando] = useState<number | null>(null);
+  const [guardando, setGuardando] = useState(false);
+  const [guardado, setGuardado] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const listaRef = useRef<HTMLDivElement | null>(null);
@@ -82,16 +84,29 @@ export default function Mirlo() {
       })
       .then((c) => {
         setContenido(c);
-        const raw = sessionStorage.getItem(
-          `mirlo-transcripcion-${params.id}`,
-        );
-        if (raw) {
-          try {
-            setSegmentos(JSON.parse(raw));
-          } catch {
-            // transcripción corrupta en sessionStorage, se ignora
+        // Si la BD no tiene transcripción, default a la de sessionStorage.
+        const cargarLocal = () => {
+          const raw = sessionStorage.getItem(
+            `mirlo-transcripcion-${params.id}`,
+          );
+          if (raw) {
+            try {
+              setSegmentos(JSON.parse(raw));
+            } catch {
+              // transcripción corrupta en sessionStorage, se ignora
+            }
           }
-        }
+        };
+        fetch(`${API_URL}/transcripciones/${params.id}`)
+          .then((r) => (r.ok ? r.json() : null))
+          .then((t) => {
+            if (t?.segmentos) {
+              setSegmentos(t.segmentos);
+            } else {
+              cargarLocal();
+            }
+          })
+          .catch(cargarLocal);
       })
       .catch(() => setError("No se pudo cargar el contenido"));
   }, [params.id]);
@@ -131,6 +146,33 @@ export default function Mirlo() {
       el.scrollIntoView({ behavior: "smooth", block: "center" });
     }
   }, [autoSeguir, segmentoActivo]);
+
+  const hayCambios = segmentos?.some((s) => s.modificado) ?? false;
+
+  const guardarTranscripcion = async () => {
+    if (!segmentos) return;
+    setGuardando(true);
+    try {
+      const res = await fetch(`${API_URL}/transcripciones`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contenido_id: params.id,
+          segmentos: segmentos.map(({ modificado, ...s }) => s),
+        }),
+      });
+      if (!res.ok) throw new Error();
+      setSegmentos((prev) =>
+        prev ? prev.map((s) => ({ ...s, modificado: false })) : prev,
+      );
+      setGuardado(true);
+      setTimeout(() => setGuardado(false), 3000);
+    } catch {
+      setError("No se pudo guardar la transcripción");
+    } finally {
+      setGuardando(false);
+    }
+  };
 
   const guardarSegmento = (i: number, texto: string) => {
     setEditando(null);
@@ -226,6 +268,7 @@ export default function Mirlo() {
                 .
               </p>
             ) : (
+              <>
               <div
                 ref={listaRef}
                 className="flex max-h-[calc(100vh-260px)] flex-col gap-1 overflow-y-auto rounded-2xl border border-border-c bg-bg-surface p-3"
@@ -295,6 +338,21 @@ export default function Mirlo() {
                   </div>
                 ))}
               </div>
+              {hayCambios && (
+                <button
+                  onClick={guardarTranscripcion}
+                  disabled={guardando}
+                  className="mt-3 self-start rounded-lg bg-accent-primary px-4 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+                >
+                  {guardando ? "Guardando…" : "Guardar cambios"}
+                </button>
+              )}
+              {guardado && (
+                <span className="mt-3 self-start text-sm text-accent-secondary">
+                  ✓ Guardado
+                </span>
+              )}
+              </>
             )}
           </div>
         </div>

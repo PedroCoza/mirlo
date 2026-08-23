@@ -11,8 +11,14 @@ from pydantic import BaseModel
 
 from app.config import settings
 from app.database import Base, engine, get_db
-from app.models import Perfil, Contenido
-from app.schemas import PerfilCreate, PerfilUpdate, PerfilOut, ContenidoOut
+from app.models import Perfil, Contenido, Transcripcion
+from app.schemas import (
+    PerfilCreate,
+    PerfilUpdate,
+    PerfilOut,
+    ContenidoOut,
+    TranscripcionOut,
+)
 from app import youtube
 from app.transcripcion import transcribir, preprocesar_audio
 
@@ -239,6 +245,38 @@ def transcribir_contenido(contenido_id: str, db: Session = Depends(get_db)):
     db.commit()
 
     return {"segmentos": segmentos}
+
+
+class TranscripcionCreate(BaseModel):
+    contenido_id: str
+    segmentos: list
+    idioma: str | None = None
+
+
+@app.post("/transcripciones", status_code=201)
+def guardar_transcripcion(data: TranscripcionCreate, db: Session = Depends(get_db)):
+    contenido = db.query(Contenido).filter(Contenido.id == data.contenido_id).first()
+    if not contenido:
+        raise HTTPException(404, "Contenido no encontrado")
+    transcripcion = Transcripcion(
+        contenido_id=data.contenido_id,
+        segmentos=data.segmentos,
+        idioma=data.idioma,
+    )
+    db.add(transcripcion)
+    db.commit()
+    return {"ok": True}
+
+
+@app.get("/transcripciones/{contenido_id}", response_model=TranscripcionOut)
+def cargar_transcripcion(contenido_id: str, db: Session = Depends(get_db)):
+    transcripcion = (
+        db.query(Transcripcion)
+        .filter(Transcripcion.contenido_id == contenido_id)
+        .order_by(Transcripcion.creado_en.desc())
+        .first()
+    )
+    return transcripcion
 
 
 class ConfigUpdate(BaseModel):

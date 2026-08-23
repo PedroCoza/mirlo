@@ -37,3 +37,14 @@ class ContenidoOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class TranscripcionOut(BaseModel):
+    id: UUID
+    contenido_id: UUID
+    segmentos: list
+    idioma: str | None
+    creado_en: datetime
+
+    class Config:
+        from_attributes = True
