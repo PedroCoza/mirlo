@@ -277,6 +277,8 @@ def cargar_transcripcion(contenido_id: str, db: Session = Depends(get_db)):
         .order_by(Transcripcion.creado_en.desc())
         .first()
     )
+    if not transcripcion:
+        raise HTTPException(404, "No hay transcripción guardada para este contenido")
     return transcripcion
 
 
