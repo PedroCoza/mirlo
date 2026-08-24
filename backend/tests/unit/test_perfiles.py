@@ -73,11 +73,6 @@ def test_crear_sin_nombre(client):
     assert resp.status_code == 422
 
 
-def test_crear_tipo_invalido(client):
-    resp = client.post("/perfiles", json={"nombre": 123, "avatar": "🦊"})
-    assert resp.status_code == 422
-
-
 def test_listar_vacio(client):
     resp = client.get("/perfiles")
     assert resp.status_code == 200

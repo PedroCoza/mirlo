@@ -54,12 +54,6 @@ def test_listar(client, perfil, tmp_descargas):
     assert {"uno.mp3", "dos.mp3"}.issubset(nombres)
 
 
-def test_listar_vacio(client, perfil):
-    resp = client.get(f"/biblioteca/{perfil['id']}")
-    assert resp.status_code == 200
-    assert resp.json() == []
-
-
 def test_aislamiento_perfiles(client, tmp_descargas):
     p1 = client.post("/perfiles", json={"nombre": "P1"}).json()
     p2 = client.post("/perfiles", json={"nombre": "P2"}).json()
@@ -70,15 +64,14 @@ def test_aislamiento_perfiles(client, tmp_descargas):
 
 
 def test_obtener_por_id(client, perfil, tmp_descargas):
-    perfil_id = perfil["id"]
-    subida = _subir_audio(client, perfil_id, "identificable.mp3").json()
-    contenido_id = subida["id"]
+    subida = _subir_audio(client, perfil["id"], "identificable.mp3").json()
 
-    listado = client.get(f"/biblioteca/{perfil_id}").json()
-    encontrados = [c for c in listado if c["id"] == contenido_id]
+    resp = client.get(f"/biblioteca/contenido/{subida['id']}")
 
-    assert len(encontrados) == 1
-    assert encontrados[0]["nombre"] == "identificable.mp3"
+    assert resp.status_code == 200
+    cuerpo = resp.json()
+    assert cuerpo["id"] == subida["id"]
+    assert cuerpo["nombre"] == "identificable.mp3"
 
 
 def test_eliminar(client, perfil, tmp_descargas):

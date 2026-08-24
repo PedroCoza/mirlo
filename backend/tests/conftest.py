@@ -7,40 +7,15 @@ os.environ.setdefault("GOOGLE_CLIENT_SECRET", "test-client-secret")
 os.environ.setdefault("YOUTUBE_REDIRECT_URI", "http://localhost:8000/youtube/callback")
 os.environ.setdefault("FRONTEND_URL", "http://localhost:3000")
 
-import uuid as _uuid
 import pytest
 from sqlalchemy import create_engine, event
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID
-from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
-from sqlalchemy.sql import sqltypes as _sqltypes
 from fastapi.testclient import TestClient
 
 from app.database import Base
 from app import models  # noqa: F401
 from app.main import app, get_db
-
-
-@compiles(PG_UUID, "sqlite")
-def _compilar_uuid_sqlite(tipo, compilador, **kw):
-    return "VARCHAR(36)"
-
-
-_bind_original_uuid = _sqltypes.Uuid.bind_processor
-
-
-def _bind_processor_compat(self, dialect):
-    if dialect.name == "sqlite":
-        def process(value):
-            if value is None:
-                return None
-            return str(value)
-        return process
-    return _bind_original_uuid(self, dialect)
-
-
-_sqltypes.Uuid.bind_processor = _bind_processor_compat
 
 
 @pytest.fixture()
@@ -107,6 +82,27 @@ def perfil(client, perfil_datos):
     resp = client.post("/perfiles", json=perfil_datos)
     assert resp.status_code == 201, resp.text
     return resp.json()
+
+
+SEGMENTOS_FAKE = [
+    {"start": 0.0, "end": 3.5, "text": "Hola mundo"},
+    {"start": 3.5, "end": 7.2, "text": "Segundo segmento de prueba"},
+]
+
+
+@pytest.fixture()
+def mock_whisperx(monkeypatch):
+    import app.main
+
+    def _preprocesar_fake(ruta):
+        return str(ruta) + ".wav"
+
+    def _transcribir_fake(ruta):
+        return [dict(s) for s in SEGMENTOS_FAKE]
+
+    monkeypatch.setattr(app.main, "preprocesar_audio", _preprocesar_fake)
+    monkeypatch.setattr(app.main, "transcribir", _transcribir_fake)
+    return SEGMENTOS_FAKE
 
 
 class _FakeYoutubeDL:
