@@ -174,6 +174,27 @@ export default function Mirlo() {
     }
   };
 
+  const exportar = async (formato: string) => {
+    try {
+      const res = await fetch(
+        `${API_URL}/exportar/${params.id}?formato=${formato}`,
+      );
+      if (!res.ok) {
+        throw new Error("Guarda la transcripción antes de exportar");
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const base = (contenido?.nombre ?? "transcripcion").split(".")[0];
+      a.download = `${base}.${formato}`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo exportar");
+    }
+  };
+
   const guardarSegmento = (i: number, texto: string) => {
     setEditando(null);
     const textoLimpio = texto.trim();
@@ -351,6 +372,22 @@ export default function Mirlo() {
                 <span className="mt-3 self-start text-sm text-accent-secondary">
                   ✓ Guardado
                 </span>
+              )}
+              {segmentos && (
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <span className="text-xs text-text-secondary">
+                    Descargar:
+                  </span>
+                  {(["srt", "vtt", "txt", "json"] as const).map((f) => (
+                    <button
+                      key={f}
+                      onClick={() => exportar(f)}
+                      className="rounded-lg border border-border-c px-2.5 py-1 text-xs font-medium uppercase text-text-secondary hover:border-accent-primary hover:text-accent-primary"
+                    >
+                      {f}
+                    </button>
+                  ))}
+                </div>
               )}
               </>
             )}

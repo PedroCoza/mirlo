@@ -5,7 +5,7 @@ import shutil
 import torch
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse, Response
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
@@ -19,6 +19,7 @@ from app.schemas import (
     ContenidoOut,
     TranscripcionOut,
 )
+from app import exportacion
 from app import youtube
 from app.transcripcion import transcribir, preprocesar_audio
 
@@ -277,6 +278,47 @@ def cargar_transcripcion(contenido_id: str, db: Session = Depends(get_db)):
         .first()
     )
     return transcripcion
+
+
+EXPORT_MEDIA_TYPES = {
+    "srt": "application/x-subrip",
+    "vtt": "text/vtt",
+    "txt": "text/plain",
+    "json": "application/json",
+}
+
+
+@app.get("/exportar/{contenido_id}")
+def exportar_transcripcion(
+    contenido_id: str, formato: str = "srt", db: Session = Depends(get_db)
+):
+    transcripcion = (
+        db.query(Transcripcion)
+        .filter(Transcripcion.contenido_id == contenido_id)
+        .order_by(Transcripcion.creado_en.desc())
+        .first()
+    )
+    if not transcripcion:
+        raise HTTPException(404, "No hay transcripción guardada para este contenido")
+
+    generadores = {
+        "srt": exportacion.generar_srt,
+        "vtt": exportacion.generar_vtt,
+        "txt": exportacion.generar_txt,
+        "json": exportacion.generar_json,
+    }
+    if formato not in generadores:
+        raise HTTPException(400, f"Formato no soportado: {formato}")
+
+    contenido = db.query(Contenido).filter(Contenido.id == contenido_id).first()
+    base = contenido.nombre.rsplit(".", 1)[0] if contenido else "transcripcion"
+    base = "".join(c if c.isalnum() or c in " -_" else "_" for c in base)
+
+    return Response(
+        content=generadores[formato](transcripcion.segmentos),
+        media_type=EXPORT_MEDIA_TYPES[formato],
+        headers={"Content-Disposition": f'attachment; filename="{base}.{formato}"'},
+    )
 
 
 class ConfigUpdate(BaseModel):
