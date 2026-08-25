@@ -55,6 +55,7 @@ export default function Incubadora() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [transcribiendo, setTranscribiendo] = useState(false);
+  const [confirmando, setConfirmando] = useState(false);
 
   useEffect(() => {
     if (hidratado && !perfil) {
@@ -97,6 +98,8 @@ export default function Incubadora() {
       setTranscribiendo(false);
     }
   };
+
+  const yaProcesado = contenido !== null && contenido.estado !== "pendiente";
 
   if (!perfil) return null;
 
@@ -151,6 +154,15 @@ export default function Incubadora() {
 
           {/* Derecha: panel de configuración del procesamiento */}
           <div className="flex flex-col gap-4">
+            {contenido.estado !== "pendiente" && (
+              <Link
+                href={`/mirlo/${params.id}`}
+                className="flex items-center justify-between rounded-xl border border-accent-secondary/40 bg-accent-secondary/10 px-4 py-2.5 text-sm font-medium text-accent-secondary"
+              >
+                <span>✓ Ya procesado</span>
+                <span>Abrir →</span>
+              </Link>
+            )}
             <section className="rounded-2xl border border-border-c bg-bg-surface p-5">
               <div className="mb-2 flex items-center justify-between">
                 <h2 className="text-base font-semibold">Transcripción</h2>
@@ -164,7 +176,9 @@ export default function Incubadora() {
               </p>
               <div className="mt-4 flex items-center gap-3">
                 <button
-                  onClick={transcribir}
+                  onClick={() =>
+                    yaProcesado ? setConfirmando(true) : transcribir()
+                  }
                   disabled={transcribiendo}
                   className="rounded-lg bg-accent-primary px-5 py-2 text-sm font-medium text-white disabled:opacity-50"
                 >
@@ -183,6 +197,41 @@ export default function Incubadora() {
               )}
             </section>
 
+          </div>
+        </div>
+      )}
+
+      {confirmando && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={() => setConfirmando(false)}
+        >
+          <div
+            className="mx-4 w-full max-w-md rounded-2xl border border-border-c bg-bg-surface p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="mb-2 text-lg font-bold">Volver a procesar</h2>
+            <p className="mb-4 text-sm text-text-secondary">
+              Ya hay un resultado para este contenido: si vuelves a
+              procesar, se sustituirá por uno nuevo.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setConfirmando(false);
+                  transcribir();
+                }}
+                className="flex-1 rounded-lg bg-accent-primary px-4 py-2 text-sm font-medium text-white"
+              >
+                Procesar de nuevo
+              </button>
+              <button
+                onClick={() => setConfirmando(false)}
+                className="flex-1 rounded-lg border border-border-c px-4 py-2 text-sm text-text-secondary"
+              >
+                Cancelar
+              </button>
+            </div>
           </div>
         </div>
       )}

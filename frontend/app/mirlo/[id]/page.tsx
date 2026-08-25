@@ -282,12 +282,20 @@ export default function Mirlo() {
 
   return (
     <main className="mx-auto flex min-h-[calc(100vh-120px)] max-w-6xl flex-col gap-6 px-6 py-12">
-      <Link
-        href={`/incubadora/${params.id}`}
-        className="text-sm text-text-secondary hover:text-text-primary"
-      >
-        ← Volver a la Incubadora
-      </Link>
+      <div className="flex items-center justify-between">
+        <Link
+          href="/nido"
+          className="text-sm text-text-secondary hover:text-text-primary"
+        >
+          ← Volver al Nido
+        </Link>
+        <Link
+          href={`/incubadora/${params.id}`}
+          className="text-sm text-text-secondary hover:text-accent-primary"
+        >
+          ⚙ Reprocesar
+        </Link>
+      </div>
 
       <AvisoError mensaje={error} onCerrar={() => setError(null)} />
 

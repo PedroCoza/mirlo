@@ -66,7 +66,6 @@ export default function Nido() {
   const [subiendo, setSubiendo] = useState(false);
   const [errorBiblioteca, setErrorBiblioteca] = useState<string | null>(null);
   const [modalSubida, setModalSubida] = useState(false);
-  const [procesando, setProcesando] = useState<string | null>(null);
   const [busqueda, setBusqueda] = useState("");
   const [filtroEstado, setFiltroEstado] = useState<"todos" | "pendiente" | "procesado">("todos");
   const [orden, setOrden] = useState<"recientes" | "nombre" | "estado">("recientes");
@@ -138,24 +137,6 @@ export default function Nido() {
       setArchivos((prev) => prev.filter((a) => a.id !== id));
     } catch {
       setErrorBiblioteca("No se pudo eliminar el archivo");
-    }
-  };
-
-  const procesarContenido = async (id: string) => {
-    setProcesando(id);
-    setErrorBiblioteca(null);
-    try {
-      const res = await fetch(`${API_URL}/transcribir/${id}`, {
-        method: "POST",
-      });
-      if (!res.ok) throw new Error();
-      setArchivos((prev) =>
-        prev.map((a) => (a.id === id ? { ...a, estado: "procesado" } : a))
-      );
-    } catch {
-      setErrorBiblioteca("No se pudo transcribir el archivo");
-    } finally {
-      setProcesando(null);
     }
   };
 
@@ -342,7 +323,11 @@ export default function Nido() {
                       {a.tipo === "audio" ? "🎵" : "🎬"}
                     </span>
                     <Link
-                      href={`/incubadora/${a.id}`}
+                      href={
+                        a.estado === "pendiente"
+                          ? `/incubadora/${a.id}`
+                          : `/mirlo/${a.id}`
+                      }
                       className="line-clamp-2 flex-1 text-sm font-medium hover:text-accent-primary"
                     >
                       {a.nombre}
@@ -355,15 +340,16 @@ export default function Nido() {
                       {a.estado === "traducido" && "🌐 Traducido"}
                     </span>
                     <div className="flex items-center gap-2">
-                      {a.estado === "pendiente" && (
-                        <button
-                          onClick={() => procesarContenido(a.id)}
-                          disabled={procesando === a.id}
-                          className="rounded-lg bg-accent-primary/20 px-2.5 py-1 text-xs font-medium text-accent-primary disabled:opacity-50"
-                        >
-                          {procesando === a.id ? "Procesando…" : "▶ Procesar"}
-                        </button>
-                      )}
+                      <Link
+                        href={
+                          a.estado === "pendiente"
+                            ? `/incubadora/${a.id}`
+                            : `/mirlo/${a.id}`
+                        }
+                        className="rounded-lg bg-accent-primary/20 px-2.5 py-1 text-xs font-medium text-accent-primary"
+                      >
+                        {a.estado === "pendiente" ? "▶ Procesar" : "Abrir"}
+                      </Link>
                       <button
                         onClick={() => eliminarArchivo(a.id)}
                         className="text-xs text-text-secondary hover:text-youtube"
