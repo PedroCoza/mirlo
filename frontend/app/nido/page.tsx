@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import AvisoError from "../componentes/aviso-error";
+import Tabs from "../componentes/tabs";
 
 type Perfil = { id: string; nombre: string; avatar: string };
 type VideoYouTube = { id: string; titulo: string; thumbnail: string };
@@ -243,29 +245,14 @@ export default function Nido() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-2 border-b border-border-c">
-        <button
-          onClick={() => setTab("biblioteca")}
-          className={`px-4 py-2 text-sm font-medium transition ${
-            tab === "biblioteca"
-              ? "border-b-2 border-accent-primary text-text-primary"
-              : "text-text-secondary hover:text-text-primary"
-          }`}
-        >
-          📁 Biblioteca
-        </button>
-        <button
-          onClick={() => setTab("youtube")}
-          className={`px-4 py-2 text-sm font-medium transition ${
-            tab === "youtube"
-              ? "border-b-2 border-accent-primary text-text-primary"
-              : "text-text-secondary hover:text-text-primary"
-          }`}
-        >
-          ▶ YouTube
-        </button>
-      </div>
+      <Tabs
+        tabs={[
+          { id: "biblioteca", etiqueta: "📁 Biblioteca" },
+          { id: "youtube", etiqueta: "▶ YouTube" },
+        ]}
+        activa={tab}
+        onCambiar={(id) => setTab(id as "biblioteca" | "youtube")}
+      />
 
       {/* Tab: Biblioteca */}
       {tab === "biblioteca" && (
@@ -322,17 +309,10 @@ export default function Nido() {
             </select>
           </div>
 
-          {errorBiblioteca && (
-            <div className="rounded-lg border border-youtube/40 bg-youtube/10 px-4 py-2 text-sm text-youtube">
-              {errorBiblioteca}
-              <button
-                onClick={() => setErrorBiblioteca(null)}
-                className="ml-2 underline"
-              >
-                Cerrar
-              </button>
-            </div>
-          )}
+          <AvisoError
+            mensaje={errorBiblioteca}
+            onCerrar={() => setErrorBiblioteca(null)}
+          />
 
           {archivos.length === 0 ? (
             <div className="flex flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-border-light bg-bg-surface p-12 text-center">
@@ -500,17 +480,10 @@ export default function Nido() {
             </div>
           </div>
 
-          {errorYoutube && (
-            <div className="rounded-lg border border-youtube/40 bg-youtube/10 px-4 py-2 text-sm text-youtube">
-              {errorYoutube}
-              <button
-                onClick={() => setErrorYoutube(null)}
-                className="ml-2 underline"
-              >
-                Cerrar
-              </button>
-            </div>
-          )}
+          <AvisoError
+            mensaje={errorYoutube}
+            onCerrar={() => setErrorYoutube(null)}
+          />
 
           {videos.length > 0 && (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

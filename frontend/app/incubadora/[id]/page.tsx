@@ -3,6 +3,7 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import AvisoError from "../../componentes/aviso-error";
 
 type Perfil = { id: string; nombre: string; avatar: string };
 type Contenido = {
@@ -112,14 +113,7 @@ export default function Incubadora() {
         <p className="text-sm text-text-secondary">Cargando contenido…</p>
       )}
 
-      {error && (
-        <div className="rounded-lg border border-youtube/40 bg-youtube/10 px-4 py-2 text-sm text-youtube">
-          {error}
-          <button onClick={() => setError(null)} className="ml-2 underline">
-            Cerrar
-          </button>
-        </div>
-      )}
+      <AvisoError mensaje={error} onCerrar={() => setError(null)} />
 
       {contenido && (
         <div className="grid flex-1 items-start gap-6 lg:grid-cols-[1fr_360px]">

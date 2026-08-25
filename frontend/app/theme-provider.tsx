@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 
+
 type Theme = "light" | "dark";
 
 const ThemeContext = createContext<{
@@ -9,18 +10,18 @@ const ThemeContext = createContext<{
   toggle: () => void;
 }>({ theme: "dark", toggle: () => {} });
 
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>("dark");
+// Lee preferencia guardada o del sistema. En servidor no hay window.
+function temaInicial(): Theme {
+  if (typeof window === "undefined") return "dark";
+  const guardado = localStorage.getItem("mirlo-theme") as Theme | null;
+  if (guardado) return guardado;
+  return window.matchMedia("(prefers-color-scheme: light)").matches
+    ? "light"
+    : "dark";
+}
 
-  // Lee preferencia guardada o del sistema al montar.
-  useEffect(() => {
-    const guardado = localStorage.getItem("mirlo-theme") as Theme | null;
-    if (guardado) {
-      setTheme(guardado);
-    } else if (window.matchMedia("(prefers-color-scheme: light)").matches) {
-      setTheme("light");
-    }
-  }, []);
+export function ThemeProvider({ children }: { children: React.ReactNode }) {
+  const [theme, setTheme] = useState<Theme>(temaInicial);
 
   useEffect(() => {
     const root = document.documentElement;

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import AvisoError from "../../componentes/aviso-error";
 
 type Perfil = { id: string; nombre: string; avatar: string };
 type Contenido = {
@@ -160,7 +161,11 @@ export default function Mirlo() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contenido_id: params.id,
-          segmentos: segmentos.map(({ modificado, ...s }) => s),
+          segmentos: segmentos.map((s) => ({
+            start: s.start,
+            end: s.end,
+            text: s.text,
+          })),
         }),
       });
       if (!res.ok) throw new Error();
@@ -284,14 +289,7 @@ export default function Mirlo() {
         ← Volver a la Incubadora
       </Link>
 
-      {error && (
-        <div className="rounded-lg border border-youtube/40 bg-youtube/10 px-4 py-2 text-sm text-youtube">
-          {error}
-          <button onClick={() => setError(null)} className="ml-2 underline">
-            Cerrar
-          </button>
-        </div>
-      )}
+      <AvisoError mensaje={error} onCerrar={() => setError(null)} />
 
       {contenido && (
         <div className="grid flex-1 items-start gap-6 lg:grid-cols-[minmax(320px,2fr)_3fr]">

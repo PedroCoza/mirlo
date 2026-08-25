@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Link from "next/link";
 import "./globals.css";
 import { ThemeProvider } from "./theme-provider";
 import { ThemeSwitch } from "./theme-switch";
@@ -33,17 +34,21 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col bg-bg-primary text-text-primary">
         <ThemeProvider>
           <header className="flex items-center justify-between border-b border-border-c bg-bg-surface px-6 py-3">
-            <a href="/" className="text-lg font-bold tracking-tight">
+            <Link href="/" className="text-lg font-bold tracking-tight">
               🐦 Mirlo
-            </a>
+            </Link>
             <ThemeSwitch />
           </header>
           <main className="flex-1">{children}</main>
           <footer className="flex items-center justify-between border-t border-border-c bg-bg-surface px-6 py-4 text-sm text-text-secondary">
             <span>Mirlo · local-first</span>
             <nav className="flex gap-4">
-              <a href="/contacto" className="hover:text-text-primary">Contacto</a>
-              <a href="/legal" className="hover:text-text-primary">Legal</a>
+              <Link href="/contacto" className="hover:text-text-primary">
+                Contacto
+              </Link>
+              <Link href="/legal" className="hover:text-text-primary">
+                Legal
+              </Link>
             </nav>
           </footer>
         </ThemeProvider>

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import AvisoError from "../componentes/aviso-error";
 
 type Perfil = {
   id: string;
@@ -118,14 +119,7 @@ export default function SelectorPerfiles() {
         </p>
       </div>
 
-      {error && (
-        <div className="mx-auto rounded-lg border border-youtube/40 bg-youtube/10 px-4 py-2 text-sm text-youtube">
-          {error}
-          <button onClick={() => setError(null)} className="ml-2 underline">
-            Cerrar
-          </button>
-        </div>
-      )}
+      <AvisoError mensaje={error} onCerrar={() => setError(null)} centrado />
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {perfiles.map((p) => {
