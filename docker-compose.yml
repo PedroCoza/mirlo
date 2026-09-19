@@ -15,6 +15,11 @@ services:
       timeout: 5s
       retries: 5
 
+  libretranslate:
+    image: libretranslate/libretranslate
+    ports:
+      - "5000:5000"
+
   backend:
     build: ./backend
     ports:

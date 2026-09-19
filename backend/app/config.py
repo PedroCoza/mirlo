@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     google_client_secret: str = ""
     youtube_redirect_uri: str = "http://localhost:8000/youtube/callback"
     frontend_url: str = "http://localhost:3000"
+    libretranslate_url: str = "http://localhost:5000"
 
 
 settings = Settings()
