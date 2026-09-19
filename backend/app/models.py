@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import String, DateTime, ForeignKey, Integer, JSON, func
+from sqlalchemy import String, DateTime, ForeignKey, Integer, JSON, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -69,4 +69,27 @@ class Transcripcion(Base):
 
     contenido: Mapped["Contenido"] = relationship(
         back_populates="transcripciones"
+    )
+    traducciones: Mapped[list["Traduccion"]] = relationship(
+        back_populates="transcripcion", cascade="all, delete-orphan"
+    )
+
+
+class Traduccion(Base):
+    __tablename__ = "traducciones"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, primary_key=True, default=uuid.uuid4
+    )
+    transcripcion_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("transcripciones.id"), nullable=False
+    )
+    idioma: Mapped[str] = mapped_column(String(10), nullable=False)
+    segmentos: Mapped[list] = mapped_column(JSON, nullable=False)
+    creado_en: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now()
+    )
+
+    transcripcion: Mapped["Transcripcion"] = relationship(
+        back_populates="traducciones"
     )

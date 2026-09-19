@@ -48,3 +48,14 @@ class TranscripcionOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class TraduccionOut(BaseModel):
+    id: UUID
+    transcripcion_id: UUID
+    idioma: str
+    segmentos: list
+    creado_en: datetime
+
+    class Config:
+        from_attributes = True

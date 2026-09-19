@@ -11,15 +11,17 @@ from pydantic import BaseModel
 
 from app.config import settings
 from app.database import Base, engine, get_db
-from app.models import Perfil, Contenido, Transcripcion
+from app.models import Perfil, Contenido, Transcripcion, Traduccion
 from app.schemas import (
     PerfilCreate,
     PerfilUpdate,
     PerfilOut,
     ContenidoOut,
     TranscripcionOut,
+    TraduccionOut,
 )
 from app import exportacion
+from app import traduccion
 from app import youtube
 from app.transcripcion import transcribir, preprocesar_audio
 
@@ -254,7 +256,7 @@ class TranscripcionCreate(BaseModel):
     idioma: str | None = None
 
 
-@app.post("/transcripciones", status_code=201)
+@app.post("/transcripciones", response_model=TranscripcionOut, status_code=201)
 def guardar_transcripcion(data: TranscripcionCreate, db: Session = Depends(get_db)):
     contenido = db.query(Contenido).filter(Contenido.id == data.contenido_id).first()
     if not contenido:
@@ -266,7 +268,8 @@ def guardar_transcripcion(data: TranscripcionCreate, db: Session = Depends(get_d
     )
     db.add(transcripcion)
     db.commit()
-    return {"ok": True}
+    db.refresh(transcripcion)
+    return transcripcion
 
 
 @app.get("/transcripciones/{contenido_id}", response_model=TranscripcionOut)
@@ -282,6 +285,52 @@ def cargar_transcripcion(contenido_id: str, db: Session = Depends(get_db)):
     return transcripcion
 
 
+class TraduccionRequest(BaseModel):
+    idioma: str
+
+
+@app.post("/traducir/{transcripcion_id}", response_model=TraduccionOut, status_code=201)
+def traducir_transcripcion(
+    transcripcion_id: uuid.UUID, data: TraduccionRequest, db: Session = Depends(get_db)
+):
+    transcripcion = (
+        db.query(Transcripcion)
+        .filter(Transcripcion.id == transcripcion_id)
+        .first()
+    )
+    if not transcripcion:
+        raise HTTPException(404, "Transcripción no encontrada")
+
+    try:
+        segmentos = traduccion.traducir_segmentos(transcripcion.segmentos, data.idioma)
+    except traduccion.ErrorTraduccion as e:
+        raise HTTPException(503, str(e))
+
+    nueva = Traduccion(
+        transcripcion_id=transcripcion.id,
+        idioma=data.idioma,
+        segmentos=segmentos,
+    )
+    db.add(nueva)
+    transcripcion.contenido.estado = "traducido"
+    db.commit()
+    db.refresh(nueva)
+    return nueva
+
+
+@app.get("/traducciones/{transcripcion_id}", response_model=TraduccionOut)
+def cargar_traduccion(transcripcion_id: uuid.UUID, db: Session = Depends(get_db)):
+    registro = (
+        db.query(Traduccion)
+        .filter(Traduccion.transcripcion_id == transcripcion_id)
+        .order_by(Traduccion.creado_en.desc())
+        .first()
+    )
+    if not registro:
+        raise HTTPException(404, "No hay traducción guardada para esta transcripción")
+    return registro
+
+
 EXPORT_MEDIA_TYPES = {
     "srt": "application/x-subrip",
     "vtt": "text/vtt",
@@ -292,7 +341,10 @@ EXPORT_MEDIA_TYPES = {
 
 @app.get("/exportar/{contenido_id}")
 def exportar_transcripcion(
-    contenido_id: str, formato: str = "srt", db: Session = Depends(get_db)
+    contenido_id: str,
+    formato: str = "srt",
+    vista: str = "original",
+    db: Session = Depends(get_db),
 ):
     transcripcion = (
         db.query(Transcripcion)
@@ -302,6 +354,24 @@ def exportar_transcripcion(
     )
     if not transcripcion:
         raise HTTPException(404, "No hay transcripción guardada para este contenido")
+
+    segmentos = transcripcion.segmentos
+    if vista in ("traduccion", "ambos"):
+        registro = (
+            db.query(Traduccion)
+            .filter(Traduccion.transcripcion_id == transcripcion.id)
+            .order_by(Traduccion.creado_en.desc())
+            .first()
+        )
+        if not registro:
+            raise HTTPException(404, "No hay traducción guardada para este contenido")
+        if vista == "traduccion":
+            segmentos = registro.segmentos
+        else:
+            segmentos = [
+                {**o, "text": f"{o['text']}\n{t['text']}"}
+                for o, t in zip(transcripcion.segmentos, registro.segmentos)
+            ]
 
     generadores = {
         "srt": exportacion.generar_srt,
@@ -317,7 +387,7 @@ def exportar_transcripcion(
     base = "".join(c if c.isalnum() or c in " -_" else "_" for c in base)
 
     return Response(
-        content=generadores[formato](transcripcion.segmentos),
+        content=generadores[formato](segmentos),
         media_type=EXPORT_MEDIA_TYPES[formato],
         headers={"Content-Disposition": f'attachment; filename="{base}.{formato}"'},
     )
