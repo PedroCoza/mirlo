@@ -21,6 +21,16 @@ type Segmento = {
   text: string;
   modificado?: boolean;
 };
+type TraduccionData = {
+  idioma: string;
+  segmentos: { start: number; end: number; text: string }[];
+};
+
+const NOMBRE_IDIOMA: Record<string, string> = {
+  en: "Inglés",
+  fr: "Francés",
+  pt: "Portugués",
+};
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -70,6 +80,10 @@ export default function Mirlo() {
   const [tab, setTab] = useState<"transcripcion" | "traduccion">(
     "transcripcion",
   );
+  const [traduccion, setTraduccion] = useState<TraduccionData | null>(null);
+  const [vistaTraduccion, setVistaTraduccion] = useState<
+    "original" | "traduccion" | "ambos"
+  >("ambos");
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const listaRef = useRef<HTMLDivElement | null>(null);
@@ -109,6 +123,12 @@ export default function Mirlo() {
           .then((t) => {
             if (t?.segmentos) {
               setSegmentos(t.segmentos);
+              fetch(`${API_URL}/traducciones/${t.id}`)
+                .then((r) => (r.ok ? r.json() : null))
+                .then((tr) => {
+                  if (tr?.segmentos) setTraduccion(tr);
+                })
+                .catch(() => {});
             } else {
               cargarLocal();
             }
@@ -187,8 +207,9 @@ export default function Mirlo() {
 
   const exportar = async (formato: string) => {
     try {
+      const vista = tab === "traduccion" ? vistaTraduccion : "original";
       const res = await fetch(
-        `${API_URL}/exportar/${params.id}?formato=${formato}`,
+        `${API_URL}/exportar/${params.id}?formato=${formato}&vista=${vista}`,
       );
       if (!res.ok) {
         throw new Error("Guarda la transcripción antes de exportar");
@@ -310,6 +331,8 @@ export default function Mirlo() {
             <p className="text-sm text-text-secondary">
               {contenido.tipo === "audio" ? "Audio" : "Vídeo"} ·{" "}
               {new Date(contenido.creado_en).toLocaleDateString("es-ES")}
+              {traduccion &&
+                ` · 🌐 ${NOMBRE_IDIOMA[traduccion.idioma] ?? traduccion.idioma}`}
             </p>
           </div>
 
@@ -335,7 +358,10 @@ export default function Mirlo() {
           </div>
 
           <Tabs
-            tabs={[{ id: "transcripcion", etiqueta: "📝 Transcripción" }]}
+            tabs={[
+              { id: "transcripcion", etiqueta: "📝 Transcripción" },
+              { id: "traduccion", etiqueta: "🌐 Traducción" },
+            ]}
             activa={tab}
             onCambiar={(id) => setTab(id as "transcripcion" | "traduccion")}
           />
@@ -538,6 +564,121 @@ export default function Mirlo() {
               </>
             )}
           </div>
+          )}
+
+          {/* Tab: Traducción */}
+          {tab === "traduccion" && (
+            <div className="flex flex-1 flex-col">
+              <div className="mb-2 flex items-center justify-between">
+                <div className="flex gap-1">
+                  {(["original", "traduccion", "ambos"] as const).map((v) => (
+                    <button
+                      key={v}
+                      onClick={() => setVistaTraduccion(v)}
+                      className={`cursor-pointer rounded-lg px-2.5 py-1 text-xs font-medium ${
+                        vistaTraduccion === v
+                          ? "bg-accent-primary/20 text-accent-primary"
+                          : "text-text-secondary hover:text-text-primary"
+                      }`}
+                    >
+                      {v === "original"
+                        ? "Original"
+                        : v === "traduccion"
+                          ? "Traducción"
+                          : "Ambos"}
+                    </button>
+                  ))}
+                </div>
+                <label className="flex cursor-pointer items-center gap-2 text-xs text-text-secondary">
+                  <input
+                    type="checkbox"
+                    checked={autoSeguir}
+                    onChange={(e) => setAutoSeguir(e.target.checked)}
+                  />
+                  Auto-seguir
+                </label>
+              </div>
+
+              {!traduccion ? (
+                <p className="rounded-xl border border-dashed border-border-light bg-bg-surface p-6 text-sm text-text-secondary">
+                  No hay traducción para este contenido.{" "}
+                  <Link
+                    href={`/incubadora/${params.id}`}
+                    className="text-accent-primary hover:underline"
+                  >
+                    Actívala en la Incubadora
+                  </Link>{" "}
+                  al procesar.
+                </p>
+              ) : (
+                <>
+                  <div
+                    ref={listaRef}
+                    className="flex max-h-[45vh] flex-col gap-1 overflow-y-auto rounded-2xl border border-border-c bg-bg-surface p-3"
+                  >
+                    <div
+                      className={`grid gap-x-4 border-b border-border-c px-2 pb-2 text-xs font-medium text-text-secondary ${
+                        vistaTraduccion === "ambos"
+                          ? "grid-cols-[64px_1fr_1fr]"
+                          : "grid-cols-[64px_1fr]"
+                      }`}
+                    >
+                      <span />
+                      {vistaTraduccion !== "traduccion" && <span>Original</span>}
+                      {vistaTraduccion !== "original" && (
+                        <span>
+                          {NOMBRE_IDIOMA[traduccion.idioma] ??
+                            traduccion.idioma}{" "}
+                          (traducido)
+                        </span>
+                      )}
+                    </div>
+                    {segmentos?.map((seg, i) => (
+                      <div
+                        key={i}
+                        data-seg={i}
+                        onClick={() => saltarA(seg.start)}
+                        className={`grid cursor-pointer gap-x-4 rounded-lg px-2 py-1.5 transition ${
+                          vistaTraduccion === "ambos"
+                            ? "grid-cols-[64px_1fr_1fr]"
+                            : "grid-cols-[64px_1fr]"
+                        } ${
+                          i === segmentoActivo
+                            ? "bg-accent-primary/10"
+                            : "hover:bg-bg-elevated"
+                        }`}
+                      >
+                        <span className="pt-0.5 font-mono text-xs text-text-secondary">
+                          {formatearTiempo(seg.start)}
+                        </span>
+                        {vistaTraduccion !== "traduccion" && (
+                          <p className="text-sm leading-relaxed">{seg.text}</p>
+                        )}
+                        {vistaTraduccion !== "original" && (
+                          <p className="text-sm leading-relaxed">
+                            {traduccion.segmentos[i]?.text ?? "—"}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <span className="text-xs text-text-secondary">
+                      Descargar:
+                    </span>
+                    {(["srt", "vtt", "txt", "json"] as const).map((f) => (
+                      <button
+                        key={f}
+                        onClick={() => exportar(f)}
+                        className="cursor-pointer rounded-lg border border-border-c px-2.5 py-1 text-xs font-medium uppercase text-text-secondary hover:border-accent-primary hover:text-accent-primary"
+                      >
+                        {f}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
           )}
         </>
       )}

@@ -246,7 +246,7 @@ export default function Nido() {
             </p>
             <button
               onClick={() => setModalSubida(true)}
-              className="rounded-lg bg-accent-primary px-3 py-1.5 text-sm font-medium text-white"
+              className="rounded-lg bg-accent-primary px-3 py-1.5 text-sm font-medium cursor-pointer text-white"
             >
               + Subir archivo
             </button>
@@ -336,7 +336,7 @@ export default function Nido() {
                   <div className="flex items-center justify-between">
                     <span className="rounded-full bg-bg-elevated px-2 py-0.5 text-xs text-text-secondary">
                       {a.estado === "pendiente" && "○ Pendiente"}
-                      {a.estado === "procesado" && "✓ Hecho"}
+                      {a.estado === "procesado" && "🎙️ Transcrito"}
                       {a.estado === "traducido" && "🌐 Traducido"}
                     </span>
                     <div className="flex items-center gap-2">
@@ -352,7 +352,7 @@ export default function Nido() {
                       </Link>
                       <button
                         onClick={() => eliminarArchivo(a.id)}
-                        className="text-xs text-text-secondary hover:text-youtube"
+                        className="text-xs text-text-secondary hover:text-youtube cursor-pointer"
                       >
                         Eliminar
                       </button>
