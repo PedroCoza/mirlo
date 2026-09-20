@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import AvisoError from "../../componentes/aviso-error";
+import Tabs from "../../componentes/tabs";
 
 type Perfil = { id: string; nombre: string; avatar: string };
 type Contenido = {
@@ -66,6 +67,9 @@ export default function Mirlo() {
   const [historial, setHistorial] = useState<Segmento[][]>([]);
   const [guardando, setGuardando] = useState(false);
   const [guardado, setGuardado] = useState(false);
+  const [tab, setTab] = useState<"transcripcion" | "traduccion">(
+    "transcripcion",
+  );
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const listaRef = useRef<HTMLDivElement | null>(null);
@@ -300,39 +304,45 @@ export default function Mirlo() {
       <AvisoError mensaje={error} onCerrar={() => setError(null)} />
 
       {contenido && (
-        <div className="grid flex-1 items-start gap-6 lg:grid-cols-[minmax(320px,2fr)_3fr]">
-          {/* Reproductor */}
-          <div className="flex flex-col gap-3">
-            <div>
-              <h1 className="text-2xl font-bold">{contenido.nombre}</h1>
-              <p className="text-sm text-text-secondary">
-                {contenido.tipo === "audio" ? "Audio" : "Vídeo"} ·{" "}
-                {new Date(contenido.creado_en).toLocaleDateString("es-ES")}
-              </p>
-            </div>
-            <div className="rounded-2xl border border-border-c bg-bg-surface p-4">
-              {contenido.tipo === "video" ? (
-                <video
-                  ref={videoRef}
-                  src={`${API_URL}/biblioteca/archivo/${params.id}`}
-                  controls
-                  onTimeUpdate={alActualizarTiempo}
-                  className="aspect-video w-full rounded-lg"
-                />
-              ) : (
-                <audio
-                  ref={audioRef}
-                  src={`${API_URL}/biblioteca/archivo/${params.id}`}
-                  controls
-                  onTimeUpdate={alActualizarTiempo}
-                  className="w-full"
-                />
-              )}
-            </div>
+        <>
+          <div>
+            <h1 className="text-2xl font-bold">{contenido.nombre}</h1>
+            <p className="text-sm text-text-secondary">
+              {contenido.tipo === "audio" ? "Audio" : "Vídeo"} ·{" "}
+              {new Date(contenido.creado_en).toLocaleDateString("es-ES")}
+            </p>
           </div>
 
-          {/* Lista de segmentos */}
-          <div className="flex flex-col">
+          {/* Reproductor común a todas las vistas */}
+          <div className="rounded-2xl border border-border-c bg-bg-surface p-4">
+            {contenido.tipo === "video" ? (
+              <video
+                ref={videoRef}
+                src={`${API_URL}/biblioteca/archivo/${params.id}`}
+                controls
+                onTimeUpdate={alActualizarTiempo}
+                className="aspect-video max-h-[45vh] w-full rounded-lg object-contain"
+              />
+            ) : (
+              <audio
+                ref={audioRef}
+                src={`${API_URL}/biblioteca/archivo/${params.id}`}
+                controls
+                onTimeUpdate={alActualizarTiempo}
+                className="w-full"
+              />
+            )}
+          </div>
+
+          <Tabs
+            tabs={[{ id: "transcripcion", etiqueta: "📝 Transcripción" }]}
+            activa={tab}
+            onCambiar={(id) => setTab(id as "transcripcion" | "traduccion")}
+          />
+
+          {/* Tab: Transcripción */}
+          {tab === "transcripcion" && (
+          <div className="flex flex-1 flex-col">
             <div className="mb-2 flex items-center justify-between">
               <h2 className="text-lg font-semibold">Transcripción</h2>
               <label className="flex cursor-pointer items-center gap-2 text-xs text-text-secondary">
@@ -359,7 +369,7 @@ export default function Mirlo() {
               <>
               <div
                 ref={listaRef}
-                className="flex max-h-[calc(100vh-260px)] flex-col gap-1 overflow-y-auto rounded-2xl border border-border-c bg-bg-surface p-3"
+                className="flex max-h-[45vh] flex-col gap-1 overflow-y-auto rounded-2xl border border-border-c bg-bg-surface p-3"
               >
                 {segmentos.map((seg, i) => (
                   <div
@@ -528,7 +538,8 @@ export default function Mirlo() {
               </>
             )}
           </div>
-        </div>
+          )}
+        </>
       )}
     </main>
   );
