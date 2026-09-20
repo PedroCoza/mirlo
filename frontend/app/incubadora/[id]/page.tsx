@@ -54,7 +54,11 @@ export default function Incubadora() {
   const [contenido, setContenido] = useState<Contenido | null>(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [transcribiendo, setTranscribiendo] = useState(false);
+  const [fase, setFase] = useState<"transcribiendo" | "traduciendo" | null>(
+    null,
+  );
+  const [traducir, setTraducir] = useState(false);
+  const [idioma, setIdioma] = useState("en");
   const [confirmando, setConfirmando] = useState(false);
 
   useEffect(() => {
@@ -74,8 +78,8 @@ export default function Incubadora() {
       .finally(() => setCargando(false));
   }, [params.id]);
 
-  const transcribir = async () => {
-    setTranscribiendo(true);
+  const lanzarProcesamiento = async () => {
+    setFase("transcribiendo");
     setError(null);
     try {
       const res = await fetch(`${API_URL}/transcribir/${params.id}`, {
@@ -90,12 +94,46 @@ export default function Incubadora() {
         `mirlo-transcripcion-${params.id}`,
         JSON.stringify(data.segmentos),
       );
+
+      if (traducir) {
+        setFase("traduciendo");
+        const guardado = await fetch(`${API_URL}/transcripciones`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contenido_id: params.id,
+            segmentos: data.segmentos,
+          }),
+        });
+        if (!guardado.ok) {
+          throw new Error("No se pudo guardar la transcripción");
+        }
+        const transcripcion = await guardado.json();
+        const resTrad = await fetch(
+          `${API_URL}/traducir/${transcripcion.id}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ idioma }),
+          },
+        );
+        if (!resTrad.ok) {
+          const err = await resTrad.json().catch(() => ({}));
+          throw new Error(err.detail || "No se pudo traducir");
+        }
+        const traduccion = await resTrad.json();
+        sessionStorage.setItem(
+          `mirlo-traduccion-${params.id}`,
+          JSON.stringify(traduccion),
+        );
+      }
+
       router.push(`/mirlo/${params.id}`);
     } catch (e) {
       setError(
-        e instanceof Error ? e.message : "No se pudo transcribir el contenido",
+        e instanceof Error ? e.message : "No se pudo procesar el contenido",
       );
-      setTranscribiendo(false);
+      setFase(null);
     }
   };
 
@@ -174,29 +212,81 @@ export default function Incubadora() {
                 WhisperX genera los segmentos con marcas de tiempo en el idioma
                 original del audio.
               </p>
-              <div className="mt-4 flex items-center gap-3">
-                <button
-                  onClick={() =>
-                    yaProcesado ? setConfirmando(true) : transcribir()
-                  }
-                  disabled={transcribiendo}
-                  className="rounded-lg bg-accent-primary px-5 py-2 text-sm font-medium text-white disabled:opacity-50"
-                >
-                  {transcribiendo ? "Transcribiendo…" : "▶ Transcribir"}
-                </button>
+              <div className="mt-4">
                 <span className="rounded-full bg-bg-elevated px-2 py-0.5 text-xs text-text-secondary">
                   {contenido.estado === "pendiente" && "○ Pendiente"}
-                  {contenido.estado === "procesado" && "✓ Hecho"}
+                  {contenido.estado === "procesado" && "🎙️ Transcrito"}
                   {contenido.estado === "traducido" && "🌐 Traducido"}
                 </span>
               </div>
-              {transcribiendo && (
-                <p className="mt-3 text-xs text-accent-primary">
-                  Esto puede tardar unos segundos dependiendo de la duración…
-                </p>
-              )}
             </section>
 
+            <section className="rounded-2xl border border-border-c bg-bg-surface p-5">
+              <div className="mb-2 flex items-center justify-between">
+                <h2
+                  className={`text-base font-semibold ${traducir ? "" : "opacity-50"}`}
+                >
+                  Traducción
+                </h2>
+                <label
+                  className="relative inline-flex cursor-pointer items-center"
+                  title="Activar traducción"
+                >
+                  <input
+                    type="checkbox"
+                    checked={traducir}
+                    onChange={(e) => setTraducir(e.target.checked)}
+                    aria-label="Activar traducción"
+                    className="peer sr-only"
+                  />
+                  <span className="h-5 w-9 rounded-full bg-bg-elevated transition-colors peer-checked:bg-accent-primary" />
+                  <span className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-text-secondary transition-transform peer-checked:translate-x-4 peer-checked:bg-white" />
+                </label>
+              </div>
+              <div
+                className={`mt-3 flex items-center justify-between ${traducir ? "" : "opacity-50"}`}
+              >
+                <span className="text-sm text-text-secondary">
+                  Idioma destino
+                </span>
+                <select
+                  value={idioma}
+                  onChange={(e) => setIdioma(e.target.value)}
+                  disabled={!traducir}
+                  className="rounded-lg border border-border-c bg-bg-elevated px-2 py-1.5 text-sm disabled:opacity-50"
+                >
+                  <option value="en">Inglés</option>
+                  <option value="fr">Francés</option>
+                  <option value="pt">Portugués</option>
+                </select>
+              </div>
+              <p className="mt-3 text-xs text-text-secondary">
+                Motor: LibreTranslate
+              </p>
+            </section>
+
+            <div>
+              <button
+                onClick={() =>
+                  yaProcesado ? setConfirmando(true) : lanzarProcesamiento()
+                }
+                disabled={fase !== null}
+                className="w-full rounded-lg bg-accent-primary px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50"
+              >
+                {fase === "transcribiendo"
+                  ? "Transcribiendo…"
+                  : fase === "traduciendo"
+                    ? "Traduciendo…"
+                    : "▶ Lanzar procesamiento"}
+              </button>
+              {fase && (
+                <p className="mt-3 text-center text-xs text-accent-primary">
+                  {fase === "traduciendo"
+                    ? "Traduciendo los segmentos…"
+                    : "Esto puede tardar unos segundos dependiendo de la duración…"}
+                </p>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -219,7 +309,7 @@ export default function Incubadora() {
               <button
                 onClick={() => {
                   setConfirmando(false);
-                  transcribir();
+                  lanzarProcesamiento();
                 }}
                 className="flex-1 rounded-lg bg-accent-primary px-4 py-2 text-sm font-medium text-white"
               >
