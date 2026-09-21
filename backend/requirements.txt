@@ -13,3 +13,4 @@ requests
 whisperx
 torch
 torchaudio
+pyannote.audio
