@@ -20,6 +20,7 @@ from app.schemas import (
     TranscripcionOut,
     TraduccionOut,
 )
+from app import diarizacion
 from app import exportacion
 from app import traduccion
 from app import youtube
@@ -329,6 +330,45 @@ def cargar_traduccion(transcripcion_id: uuid.UUID, db: Session = Depends(get_db)
     if not registro:
         raise HTTPException(404, "No hay traducción guardada para esta transcripción")
     return registro
+
+
+class DiarizacionRequest(BaseModel):
+    num_hablantes: int | None = None
+
+
+@app.post("/diarizar/{transcripcion_id}", response_model=TranscripcionOut)
+def diarizar_transcripcion(
+    transcripcion_id: uuid.UUID, data: DiarizacionRequest, db: Session = Depends(get_db)
+):
+    transcripcion = (
+        db.query(Transcripcion)
+        .filter(Transcripcion.id == transcripcion_id)
+        .first()
+    )
+    if not transcripcion:
+        raise HTTPException(404, "Transcripción no encontrada")
+
+    contenido = transcripcion.contenido
+    perfil = contenido.perfil
+    if not perfil.hf_token:
+        raise HTTPException(400, "El perfil no tiene token de HuggingFace configurado")
+
+    ruta = os.path.join(DESCARGAS_DIR, str(contenido.perfil_id), contenido.ruta)
+    if not os.path.exists(ruta):
+        raise HTTPException(500, "Archivo no encontrado en disco")
+
+    try:
+        turnos = diarizacion.diarizar(ruta, perfil.hf_token, data.num_hablantes)
+    except diarizacion.ErrorDiarizacion as e:
+        raise HTTPException(503, str(e))
+
+    segmentos = [dict(s) for s in transcripcion.segmentos]
+    diarizacion.asignar_hablantes(segmentos, turnos)
+    transcripcion.segmentos = segmentos
+    transcripcion.hablantes = sorted({t["speaker"] for t in turnos})
+    db.commit()
+    db.refresh(transcripcion)
+    return transcripcion
 
 
 EXPORT_MEDIA_TYPES = {

@@ -44,6 +44,7 @@ class TranscripcionOut(BaseModel):
     contenido_id: UUID
     segmentos: list
     idioma: str | None
+    hablantes: list | None = None
     creado_en: datetime
 
     class Config:

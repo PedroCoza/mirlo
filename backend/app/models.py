@@ -63,6 +63,7 @@ class Transcripcion(Base):
     )
     segmentos: Mapped[list] = mapped_column(JSON, nullable=False)
     idioma: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    hablantes: Mapped[list | None] = mapped_column(JSON, nullable=True)
     creado_en: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now()
     )
