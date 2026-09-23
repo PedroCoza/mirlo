@@ -19,6 +19,7 @@ type Segmento = {
   start: number;
   end: number;
   text: string;
+  hablante?: string | null;
   modificado?: boolean;
 };
 type TraduccionData = {
@@ -31,6 +32,23 @@ const NOMBRE_IDIOMA: Record<string, string> = {
   fr: "Francés",
   pt: "Portugués",
 };
+
+const COLORES_HABLANTE = [
+  "#4f8ef7",
+  "#4fc37a",
+  "#c77bd6",
+  "#e0b64f",
+  "#4fc3c9",
+  "#e06a5a",
+];
+
+function colorHablante(nombre: string) {
+  let h = 0;
+  for (let i = 0; i < nombre.length; i++) {
+    h = (h * 31 + nombre.charCodeAt(i)) >>> 0;
+  }
+  return COLORES_HABLANTE[h % COLORES_HABLANTE.length];
+}
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -72,14 +90,15 @@ export default function Mirlo() {
   const [segmentos, setSegmentos] = useState<Segmento[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tiempoActual, setTiempoActual] = useState(0);
+  const [duracionAudio, setDuracionAudio] = useState(0);
   const [autoSeguir, setAutoSeguir] = useState(true);
   const [editando, setEditando] = useState<number | null>(null);
   const [historial, setHistorial] = useState<Segmento[][]>([]);
   const [guardando, setGuardando] = useState(false);
   const [guardado, setGuardado] = useState(false);
-  const [tab, setTab] = useState<"transcripcion" | "traduccion">(
-    "transcripcion",
-  );
+  const [tab, setTab] = useState<
+    "transcripcion" | "traduccion" | "diarizacion"
+  >("transcripcion");
   const [traduccion, setTraduccion] = useState<TraduccionData | null>(null);
   const [vistaTraduccion, setVistaTraduccion] = useState<
     "original" | "traduccion" | "ambos"
@@ -142,6 +161,27 @@ export default function Mirlo() {
     segmentos?.findIndex(
       (seg) => tiempoActual >= seg.start && tiempoActual < seg.end,
     ) ?? -1;
+
+  const hablantes = [
+    ...new Set(
+      segmentos?.flatMap((s) => (s.hablante ? [s.hablante] : [])) ?? [],
+    ),
+  ].sort();
+
+  const duracion =
+    duracionAudio ||
+    (segmentos?.length ? segmentos[segmentos.length - 1].end : 0);
+
+  const repartoHablantes = hablantes.map((h) => {
+    const propios = segmentos?.filter((s) => s.hablante === h) ?? [];
+    const total = propios.reduce((acc, s) => acc + (s.end - s.start), 0);
+    return {
+      nombre: h,
+      segmentos: propios.length,
+      tiempo: total,
+      porcentaje: duracion ? (total / duracion) * 100 : 0,
+    };
+  });
 
   const alActualizarTiempo = () => {
     const rep = reproductor();
@@ -336,7 +376,6 @@ export default function Mirlo() {
             </p>
           </div>
 
-          {/* Reproductor común a todas las vistas */}
           <div className="rounded-2xl border border-border-c bg-bg-surface p-4">
             {contenido.tipo === "video" ? (
               <video
@@ -344,6 +383,9 @@ export default function Mirlo() {
                 src={`${API_URL}/biblioteca/archivo/${params.id}`}
                 controls
                 onTimeUpdate={alActualizarTiempo}
+                onLoadedMetadata={(e) =>
+                  setDuracionAudio(e.currentTarget.duration)
+                }
                 className="aspect-video max-h-[45vh] w-full rounded-lg object-contain"
               />
             ) : (
@@ -352,6 +394,9 @@ export default function Mirlo() {
                 src={`${API_URL}/biblioteca/archivo/${params.id}`}
                 controls
                 onTimeUpdate={alActualizarTiempo}
+                onLoadedMetadata={(e) =>
+                  setDuracionAudio(e.currentTarget.duration)
+                }
                 className="w-full"
               />
             )}
@@ -361,12 +406,14 @@ export default function Mirlo() {
             tabs={[
               { id: "transcripcion", etiqueta: "📝 Transcripción" },
               { id: "traduccion", etiqueta: "🌐 Traducción" },
+              { id: "diarizacion", etiqueta: "👥 Diarización" },
             ]}
             activa={tab}
-            onCambiar={(id) => setTab(id as "transcripcion" | "traduccion")}
+            onCambiar={(id) =>
+              setTab(id as "transcripcion" | "traduccion" | "diarizacion")
+            }
           />
 
-          {/* Tab: Transcripción */}
           {tab === "transcripcion" && (
           <div className="flex flex-1 flex-col">
             <div className="mb-2 flex items-center justify-between">
@@ -566,7 +613,6 @@ export default function Mirlo() {
           </div>
           )}
 
-          {/* Tab: Traducción */}
           {tab === "traduccion" && (
             <div className="flex flex-1 flex-col">
               <div className="mb-2 flex items-center justify-between">
@@ -662,6 +708,270 @@ export default function Mirlo() {
                       </div>
                     ))}
                   </div>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <span className="text-xs text-text-secondary">
+                      Descargar:
+                    </span>
+                    {(["srt", "vtt", "txt", "json"] as const).map((f) => (
+                      <button
+                        key={f}
+                        onClick={() => exportar(f)}
+                        className="cursor-pointer rounded-lg border border-border-c px-2.5 py-1 text-xs font-medium uppercase text-text-secondary hover:border-accent-primary hover:text-accent-primary"
+                      >
+                        {f}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {tab === "diarizacion" && (
+            <div className="flex flex-1 flex-col">
+              <div className="mb-2 flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold">
+                    Transcripción con hablantes
+                  </h2>
+                  {hablantes.length > 0 && (
+                    <p className="text-xs text-text-secondary">
+                      {segmentos?.length ?? 0} segmentos ·{" "}
+                      {hablantes.length} hablantes
+                    </p>
+                  )}
+                </div>
+                <label className="flex cursor-pointer items-center gap-2 text-xs text-text-secondary">
+                  <input
+                    type="checkbox"
+                    checked={autoSeguir}
+                    onChange={(e) => setAutoSeguir(e.target.checked)}
+                  />
+                  Auto-seguir
+                </label>
+              </div>
+
+              {hablantes.length === 0 ? (
+                <p className="rounded-xl border border-dashed border-border-light bg-bg-surface p-6 text-sm text-text-secondary">
+                  No hay hablantes identificados para este contenido.{" "}
+                  <Link
+                    href={`/incubadora/${params.id}`}
+                    className="text-accent-primary hover:underline"
+                  >
+                    Actívalo en la Incubadora
+                  </Link>{" "}
+                  al procesar.
+                </p>
+              ) : (
+                <>
+                  <div className="mb-3 rounded-2xl border border-border-c bg-bg-surface p-3">
+                    <div className="flex flex-col gap-1.5">
+                      {hablantes.map((h) => (
+                        <div key={h} className="flex items-center gap-2">
+                          <span
+                            title={h}
+                            style={{ backgroundColor: colorHablante(h) }}
+                            className="h-4 w-4 shrink-0 rounded-full text-center text-[9px] font-bold leading-4 text-white"
+                          >
+                            {h.slice(-2)}
+                          </span>
+                          <div className="relative h-5 flex-1 overflow-hidden rounded bg-bg-elevated">
+                            {segmentos
+                              ?.filter((s) => s.hablante === h)
+                              .map((s, j) => (
+                                <button
+                                  key={j}
+                                  onClick={() => saltarA(s.start)}
+                                  title={`${formatearTiempo(s.start)} · ${h}`}
+                                  style={{
+                                    left: `${(s.start / duracion) * 100}%`,
+                                    width: `${Math.max(((s.end - s.start) / duracion) * 100, 0.4)}%`,
+                                    backgroundColor: colorHablante(h),
+                                  }}
+                                  className="absolute inset-y-0.5 cursor-pointer rounded-sm hover:opacity-80"
+                                />
+                              ))}
+                            {duracion > 0 && (
+                              <span
+                                style={{
+                                  left: `${(tiempoActual / duracion) * 100}%`,
+                                }}
+                                className="pointer-events-none absolute inset-y-0 w-0.5 bg-text-primary"
+                              />
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-1.5 flex justify-between pl-6 font-mono text-[10px] text-text-secondary">
+                      <span>00:00</span>
+                      <span>{formatearTiempo(duracion)}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex max-h-[45vh] flex-col gap-1 overflow-y-auto rounded-2xl border border-border-c bg-bg-surface p-3">
+                    {segmentos?.map((seg, i) => (
+                      <div
+                        key={i}
+                        data-seg={i}
+                        onClick={() => saltarA(seg.start)}
+                        onDoubleClick={() => setEditando(i)}
+                        className={`group flex cursor-pointer flex-col rounded-lg px-2 py-1.5 transition ${
+                          i === segmentoActivo
+                            ? "bg-accent-primary/10"
+                            : "hover:bg-bg-elevated"
+                        } ${seg.modificado ? "border-l-2 border-accent-primary" : ""}`}
+                      >
+                        <div className="flex gap-3">
+                        <span className="shrink-0 pt-0.5 font-mono text-xs text-text-secondary">
+                          {formatearTiempo(seg.start)}
+                        </span>
+                        <span
+                          title={seg.hablante ?? "Sin asignar"}
+                          style={{
+                            backgroundColor: seg.hablante
+                              ? colorHablante(seg.hablante)
+                              : "#555",
+                          }}
+                          className="mt-0.5 h-5 w-5 shrink-0 rounded-full text-center text-[10px] font-bold leading-5 text-white"
+                        >
+                          {seg.hablante ? seg.hablante.slice(-2) : "—"}
+                        </span>
+                        {editando === i ? (
+                          <textarea
+                            autoFocus
+                            defaultValue={seg.text}
+                            ref={(el) => {
+                              edicionRef.current = el;
+                              if (el) {
+                                el.style.height = "auto";
+                                el.style.height = el.scrollHeight + "px";
+                              }
+                            }}
+                            onBlur={(e) => guardarSegmento(i, e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && !e.shiftKey) {
+                                e.preventDefault();
+                                e.currentTarget.blur();
+                              }
+                            }}
+                            className="w-full resize-none rounded-lg border border-accent-primary/40 bg-bg-elevated px-2 py-1 text-sm leading-relaxed"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        ) : (
+                          <p className="text-sm leading-relaxed">{seg.text}</p>
+                        )}
+                        </div>
+                        <div className="mt-1 flex justify-end gap-1.5 opacity-0 transition group-hover:opacity-100">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditando(i);
+                            }}
+                            aria-label="Editar segmento"
+                            title="Editar el texto del segmento"
+                            className="cursor-pointer text-text-secondary hover:text-text-primary"
+                          >
+                            <svg
+                              width="12"
+                              height="12"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                            </svg>
+                          </button>
+                          <button
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              dividirSegmento(i);
+                            }}
+                            disabled={editando !== i}
+                            aria-label="Dividir por el cursor"
+                            title={
+                              editando === i
+                                ? "Dividir el segmento por donde está el cursor"
+                                : "Edita el segmento y coloca el cursor para dividir"
+                            }
+                            className="cursor-pointer text-text-secondary hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-30"
+                          >
+                            <svg
+                              width="12"
+                              height="12"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <circle cx="6" cy="6" r="3" />
+                              <circle cx="6" cy="18" r="3" />
+                              <line x1="20" y1="4" x2="8.12" y2="15.88" />
+                              <line x1="14.47" y1="14.48" x2="20" y2="20" />
+                              <line x1="8.12" y1="8.12" x2="12" y2="12" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              fusionarConSiguiente(i);
+                            }}
+                            disabled={i === (segmentos?.length ?? 0) - 1}
+                            aria-label="Fusionar con el siguiente"
+                            title="Fusionar con el siguiente"
+                            className="cursor-pointer text-text-secondary hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-30"
+                          >
+                            <svg
+                              width="12"
+                              height="12"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-3 flex items-center gap-2">
+                    {hayCambios && (
+                      <button
+                        onClick={guardarTranscripcion}
+                        disabled={guardando}
+                        className="rounded-lg bg-accent-primary px-4 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+                      >
+                        {guardando ? "Guardando…" : "Guardar cambios"}
+                      </button>
+                    )}
+                    {historial.length > 0 && (
+                      <button
+                        onClick={deshacer}
+                        title="Deshacer la última división o fusión"
+                        className="rounded-lg border border-border-c px-3 py-1.5 text-sm text-text-secondary hover:border-accent-primary hover:text-accent-primary"
+                      >
+                        ↶ Deshacer
+                      </button>
+                    )}
+                    {guardado && (
+                      <span className="text-sm text-accent-secondary">
+                        ✓ Guardado
+                      </span>
+                    )}
+                  </div>
+
                   <div className="mt-3 flex flex-wrap items-center gap-2">
                     <span className="text-xs text-text-secondary">
                       Descargar:
