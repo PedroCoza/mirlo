@@ -54,11 +54,13 @@ export default function Incubadora() {
   const [contenido, setContenido] = useState<Contenido | null>(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [fase, setFase] = useState<"transcribiendo" | "traduciendo" | null>(
-    null,
-  );
+  const [fase, setFase] = useState<
+    "transcribiendo" | "identificando" | "traduciendo" | null
+  >(null);
   const [traducir, setTraducir] = useState(false);
   const [idioma, setIdioma] = useState("en");
+  const [diarizar, setDiarizar] = useState(false);
+  const [numHablantes, setNumHablantes] = useState("");
   const [confirmando, setConfirmando] = useState(false);
 
   useEffect(() => {
@@ -90,44 +92,74 @@ export default function Incubadora() {
         throw new Error(err.detail || "No se pudo transcribir");
       }
       const data = await res.json();
-      sessionStorage.setItem(
-        `mirlo-transcripcion-${params.id}`,
-        JSON.stringify(data.segmentos),
-      );
+      let segmentos = data.segmentos;
 
-      if (traducir) {
-        setFase("traduciendo");
+      if (diarizar || traducir) {
         const guardado = await fetch(`${API_URL}/transcripciones`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             contenido_id: params.id,
-            segmentos: data.segmentos,
+            segmentos,
           }),
         });
         if (!guardado.ok) {
           throw new Error("No se pudo guardar la transcripción");
         }
         const transcripcion = await guardado.json();
-        const resTrad = await fetch(
-          `${API_URL}/traducir/${transcripcion.id}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ idioma }),
-          },
-        );
-        if (!resTrad.ok) {
-          const err = await resTrad.json().catch(() => ({}));
-          throw new Error(err.detail || "No se pudo traducir");
+
+        if (diarizar) {
+          setFase("identificando");
+          const resDiar = await fetch(
+            `${API_URL}/diarizar/${transcripcion.id}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(
+                numHablantes ? { num_hablantes: Number(numHablantes) } : {},
+              ),
+            },
+          );
+          if (!resDiar.ok) {
+            const err = await resDiar.json().catch(() => ({}));
+            throw new Error(
+              err.detail || "No se pudo identificar a los hablantes",
+            );
+          }
+          const diarizada = await resDiar.json();
+          segmentos = diarizada.segmentos;
+          sessionStorage.setItem(
+            `mirlo-hablantes-${params.id}`,
+            JSON.stringify(diarizada.hablantes),
+          );
         }
-        const traduccion = await resTrad.json();
-        sessionStorage.setItem(
-          `mirlo-traduccion-${params.id}`,
-          JSON.stringify(traduccion),
-        );
+
+        if (traducir) {
+          setFase("traduciendo");
+          const resTrad = await fetch(
+            `${API_URL}/traducir/${transcripcion.id}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ idioma }),
+            },
+          );
+          if (!resTrad.ok) {
+            const err = await resTrad.json().catch(() => ({}));
+            throw new Error(err.detail || "No se pudo traducir");
+          }
+          const traduccion = await resTrad.json();
+          sessionStorage.setItem(
+            `mirlo-traduccion-${params.id}`,
+            JSON.stringify(traduccion),
+          );
+        }
       }
 
+      sessionStorage.setItem(
+        `mirlo-transcripcion-${params.id}`,
+        JSON.stringify(segmentos),
+      );
       router.push(`/mirlo/${params.id}`);
     } catch (e) {
       setError(
@@ -265,6 +297,50 @@ export default function Incubadora() {
               </p>
             </section>
 
+            <section className="rounded-2xl border border-border-c bg-bg-surface p-5">
+              <div className="mb-2 flex items-center justify-between">
+                <h2
+                  className={`text-base font-semibold ${diarizar ? "" : "opacity-50"}`}
+                >
+                  Identificación de hablantes
+                </h2>
+                <label
+                  className="relative inline-flex cursor-pointer items-center"
+                  title="Activar identificación de hablantes"
+                >
+                  <input
+                    type="checkbox"
+                    checked={diarizar}
+                    onChange={(e) => setDiarizar(e.target.checked)}
+                    aria-label="Activar identificación de hablantes"
+                    className="peer sr-only"
+                  />
+                  <span className="h-5 w-9 rounded-full bg-bg-elevated transition-colors peer-checked:bg-accent-primary" />
+                  <span className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-text-secondary transition-transform peer-checked:translate-x-4 peer-checked:bg-white" />
+                </label>
+              </div>
+              <div
+                className={`mt-3 flex items-center justify-between ${diarizar ? "" : "opacity-50"}`}
+              >
+                <span className="text-sm text-text-secondary">
+                  Nº de hablantes
+                </span>
+                <input
+                  type="number"
+                  min={2}
+                  max={10}
+                  value={numHablantes}
+                  onChange={(e) => setNumHablantes(e.target.value)}
+                  disabled={!diarizar}
+                  placeholder="Automático"
+                  className="w-28 rounded-lg border border-border-c bg-bg-elevated px-2 py-1.5 text-sm disabled:opacity-50"
+                />
+              </div>
+              <p className="mt-3 text-xs text-text-secondary">
+                Motor: Pyannote 4
+              </p>
+            </section>
+
             <div>
               <button
                 onClick={() =>
@@ -275,15 +351,19 @@ export default function Incubadora() {
               >
                 {fase === "transcribiendo"
                   ? "Transcribiendo…"
-                  : fase === "traduciendo"
-                    ? "Traduciendo…"
-                    : "▶ Lanzar procesamiento"}
+                  : fase === "identificando"
+                    ? "Identificando…"
+                    : fase === "traduciendo"
+                      ? "Traduciendo…"
+                      : "▶ Lanzar procesamiento"}
               </button>
               {fase && (
                 <p className="mt-3 text-center text-xs text-accent-primary">
                   {fase === "traduciendo"
                     ? "Traduciendo los segmentos…"
-                    : "Esto puede tardar unos segundos dependiendo de la duración…"}
+                    : fase === "identificando"
+                      ? "Identificando quién habla en cada segmento…"
+                      : "Esto puede tardar unos segundos dependiendo de la duración…"}
                 </p>
               )}
             </div>
