@@ -42,14 +42,6 @@ const COLORES_HABLANTE = [
   "#e06a5a",
 ];
 
-function colorHablante(nombre: string) {
-  let h = 0;
-  for (let i = 0; i < nombre.length; i++) {
-    h = (h * 31 + nombre.charCodeAt(i)) >>> 0;
-  }
-  return COLORES_HABLANTE[h % COLORES_HABLANTE.length];
-}
-
 function etiquetaHablante(nombre: string) {
   return nombre.startsWith("SPEAKER_")
     ? nombre.slice(-2)
@@ -174,6 +166,11 @@ export default function Mirlo() {
       segmentos?.flatMap((s) => (s.hablante ? [s.hablante] : [])) ?? [],
     ),
   ].sort();
+
+  const colorHablante = (nombre: string) =>
+    COLORES_HABLANTE[
+      Math.max(0, hablantes.indexOf(nombre)) % COLORES_HABLANTE.length
+    ];
 
   const duracion =
     duracionAudio ||
