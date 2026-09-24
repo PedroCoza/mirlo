@@ -50,6 +50,12 @@ function colorHablante(nombre: string) {
   return COLORES_HABLANTE[h % COLORES_HABLANTE.length];
 }
 
+function etiquetaHablante(nombre: string) {
+  return nombre.startsWith("SPEAKER_")
+    ? nombre.slice(-2)
+    : nombre.slice(0, 2).toUpperCase();
+}
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 let _rawCache: string | null | undefined;
@@ -93,6 +99,7 @@ export default function Mirlo() {
   const [duracionAudio, setDuracionAudio] = useState(0);
   const [autoSeguir, setAutoSeguir] = useState(true);
   const [editando, setEditando] = useState<number | null>(null);
+  const [renombrando, setRenombrando] = useState<string | null>(null);
   const [historial, setHistorial] = useState<Segmento[][]>([]);
   const [guardando, setGuardando] = useState(false);
   const [guardado, setGuardado] = useState(false);
@@ -335,6 +342,21 @@ export default function Mirlo() {
       modificado: true,
     });
     aplicar(nuevos);
+  };
+
+  const renombrarHablante = (anterior: string, nuevo: string) => {
+    const limpio = nuevo.trim();
+    setRenombrando(null);
+    if (!limpio || limpio === anterior) return;
+    setSegmentos((prev) =>
+      prev
+        ? prev.map((s) =>
+            s.hablante === anterior
+              ? { ...s, hablante: limpio, modificado: true }
+              : s,
+          )
+        : prev,
+    );
   };
 
   const formatearTiempo = (t: number) => {
@@ -775,7 +797,7 @@ export default function Mirlo() {
                             style={{ backgroundColor: colorHablante(h) }}
                             className="h-4 w-4 shrink-0 rounded-full text-center text-[9px] font-bold leading-4 text-white"
                           >
-                            {h.slice(-2)}
+                            {etiquetaHablante(h)}
                           </span>
                           <div className="relative h-5 flex-1 overflow-hidden rounded bg-bg-elevated">
                             {segmentos
@@ -840,7 +862,7 @@ export default function Mirlo() {
                           }}
                           className="mt-0.5 h-5 w-5 shrink-0 rounded-full text-center text-[10px] font-bold leading-5 text-white"
                         >
-                          {seg.hablante ? seg.hablante.slice(-2) : "—"}
+                          {seg.hablante ? etiquetaHablante(seg.hablante) : "—"}
                         </span>
                         {editando === i ? (
                           <textarea
@@ -1004,11 +1026,35 @@ export default function Mirlo() {
                             }}
                             className="h-4 w-4 shrink-0 rounded-full text-center text-[9px] font-bold leading-4 text-white"
                           >
-                            {h.nombre.slice(-2)}
+                            {etiquetaHablante(h.nombre)}
                           </span>
-                          <span className="truncate text-sm font-medium">
-                            {h.nombre}
-                          </span>
+                          {renombrando === h.nombre ? (
+                            <input
+                              autoFocus
+                              defaultValue={h.nombre}
+                              onBlur={(e) =>
+                                renombrarHablante(h.nombre, e.target.value)
+                              }
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  e.currentTarget.blur();
+                                }
+                                if (e.key === "Escape") {
+                                  setRenombrando(null);
+                                }
+                              }}
+                              className="min-w-0 flex-1 rounded-lg border border-accent-primary/40 bg-bg-elevated px-2 py-1 text-sm"
+                            />
+                          ) : (
+                            <button
+                              onClick={() => setRenombrando(h.nombre)}
+                              title="Renombrar hablante"
+                              className="truncate text-sm font-medium hover:text-accent-primary"
+                            >
+                              {h.nombre}
+                            </button>
+                          )}
                         </div>
                         <div className="mt-1.5 flex justify-between text-xs text-text-secondary">
                           <span>{h.segmentos} segmentos</span>
