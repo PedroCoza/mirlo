@@ -764,6 +764,8 @@ export default function Mirlo() {
                 </p>
               ) : (
                 <>
+                  <div className="grid flex-1 items-start gap-4 lg:grid-cols-[1fr_240px]">
+                  <div className="flex min-w-0 flex-col">
                   <div className="mb-3 rounded-2xl border border-border-c bg-bg-surface p-3">
                     <div className="flex flex-col gap-1.5">
                       {hablantes.map((h) => (
@@ -809,7 +811,10 @@ export default function Mirlo() {
                     </div>
                   </div>
 
-                  <div className="flex max-h-[45vh] flex-col gap-1 overflow-y-auto rounded-2xl border border-border-c bg-bg-surface p-3">
+                  <div
+                    ref={listaRef}
+                    className="flex max-h-[45vh] flex-col gap-1 overflow-y-auto rounded-2xl border border-border-c bg-bg-surface p-3"
+                  >
                     {segmentos?.map((seg, i) => (
                       <div
                         key={i}
@@ -985,6 +990,45 @@ export default function Mirlo() {
                         {f}
                       </button>
                     ))}
+                  </div>
+                  </div>
+                  <aside className="flex flex-col rounded-2xl border border-border-c bg-bg-surface p-4">
+                    <h3 className="text-sm font-semibold">Hablantes</h3>
+                    {repartoHablantes.map((h) => (
+                      <div key={h.nombre} className="mt-4">
+                        <div className="flex items-center gap-2">
+                          <span
+                            title={h.nombre}
+                            style={{
+                              backgroundColor: colorHablante(h.nombre),
+                            }}
+                            className="h-4 w-4 shrink-0 rounded-full text-center text-[9px] font-bold leading-4 text-white"
+                          >
+                            {h.nombre.slice(-2)}
+                          </span>
+                          <span className="truncate text-sm font-medium">
+                            {h.nombre}
+                          </span>
+                        </div>
+                        <div className="mt-1.5 flex justify-between text-xs text-text-secondary">
+                          <span>{h.segmentos} segmentos</span>
+                          <span>
+                            {Math.round(h.porcentaje)}% ·{" "}
+                            {formatearTiempo(h.tiempo)}
+                          </span>
+                        </div>
+                        <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-bg-elevated">
+                          <div
+                            style={{
+                              width: `${h.porcentaje}%`,
+                              backgroundColor: colorHablante(h.nombre),
+                            }}
+                            className="h-full rounded-full"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </aside>
                   </div>
                 </>
               )}
