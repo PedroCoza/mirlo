@@ -92,6 +92,7 @@ export default function Mirlo() {
   const [autoSeguir, setAutoSeguir] = useState(true);
   const [editando, setEditando] = useState<number | null>(null);
   const [renombrando, setRenombrando] = useState<string | null>(null);
+  const [fusionando, setFusionando] = useState<string | null>(null);
   const [historial, setHistorial] = useState<Segmento[][]>([]);
   const [guardando, setGuardando] = useState(false);
   const [guardado, setGuardado] = useState(false);
@@ -233,7 +234,9 @@ export default function Mirlo() {
             start: s.start,
             end: s.end,
             text: s.text,
+            hablante: s.hablante,
           })),
+          hablantes: hablantes.length ? hablantes : undefined,
         }),
       });
       if (!res.ok) throw new Error();
@@ -350,6 +353,19 @@ export default function Mirlo() {
         ? prev.map((s) =>
             s.hablante === anterior
               ? { ...s, hablante: limpio, modificado: true }
+              : s,
+          )
+        : prev,
+    );
+  };
+
+  const fusionarHablantes = (absorbido: string, destino: string) => {
+    setFusionando(null);
+    setSegmentos((prev) =>
+      prev
+        ? prev.map((s) =>
+            s.hablante === absorbido
+              ? { ...s, hablante: destino, modificado: true }
               : s,
           )
         : prev,
@@ -1069,6 +1085,41 @@ export default function Mirlo() {
                             className="h-full rounded-full"
                           />
                         </div>
+                        {fusionando === h.nombre ? (
+                          <select
+                            autoFocus
+                            defaultValue=""
+                            onChange={(e) => {
+                              if (e.target.value) {
+                                fusionarHablantes(h.nombre, e.target.value);
+                              } else {
+                                setFusionando(null);
+                              }
+                            }}
+                            onBlur={() => setFusionando(null)}
+                            className="mt-2 w-full rounded-lg border border-border-c bg-bg-elevated px-2 py-1 text-xs"
+                          >
+                            <option value="" disabled>
+                              Fusionar con…
+                            </option>
+                            {hablantes
+                              .filter((o) => o !== h.nombre)
+                              .map((o) => (
+                                <option key={o} value={o}>
+                                  {o}
+                                </option>
+                              ))}
+                          </select>
+                        ) : (
+                          <button
+                            onClick={() => setFusionando(h.nombre)}
+                            disabled={hablantes.length < 2}
+                            title="Fusionar este hablante con otro"
+                            className="mt-2 cursor-pointer text-xs text-text-secondary hover:text-accent-primary disabled:cursor-not-allowed disabled:opacity-30"
+                          >
+                            🔗 Fusionar
+                          </button>
+                        )}
                       </div>
                     ))}
                   </aside>

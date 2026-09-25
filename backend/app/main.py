@@ -255,6 +255,7 @@ class TranscripcionCreate(BaseModel):
     contenido_id: str
     segmentos: list
     idioma: str | None = None
+    hablantes: list | None = None
 
 
 @app.post("/transcripciones", response_model=TranscripcionOut, status_code=201)
@@ -266,6 +267,7 @@ def guardar_transcripcion(data: TranscripcionCreate, db: Session = Depends(get_d
         contenido_id=data.contenido_id,
         segmentos=data.segmentos,
         idioma=data.idioma,
+        hablantes=data.hablantes,
     )
     db.add(transcripcion)
     db.commit()
