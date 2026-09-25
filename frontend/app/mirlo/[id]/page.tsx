@@ -347,28 +347,25 @@ export default function Mirlo() {
   const renombrarHablante = (anterior: string, nuevo: string) => {
     const limpio = nuevo.trim();
     setRenombrando(null);
-    if (!limpio || limpio === anterior) return;
-    setSegmentos((prev) =>
-      prev
-        ? prev.map((s) =>
-            s.hablante === anterior
-              ? { ...s, hablante: limpio, modificado: true }
-              : s,
-          )
-        : prev,
+    if (!limpio || limpio === anterior || !segmentos) return;
+    aplicar(
+      segmentos.map((s) =>
+        s.hablante === anterior
+          ? { ...s, hablante: limpio, modificado: true }
+          : s,
+      ),
     );
   };
 
   const fusionarHablantes = (absorbido: string, destino: string) => {
     setFusionando(null);
-    setSegmentos((prev) =>
-      prev
-        ? prev.map((s) =>
-            s.hablante === absorbido
-              ? { ...s, hablante: destino, modificado: true }
-              : s,
-          )
-        : prev,
+    if (!segmentos) return;
+    aplicar(
+      segmentos.map((s) =>
+        s.hablante === absorbido
+          ? { ...s, hablante: destino, modificado: true }
+          : s,
+      ),
     );
   };
 
@@ -615,7 +612,7 @@ export default function Mirlo() {
                 {historial.length > 0 && (
                   <button
                     onClick={deshacer}
-                    title="Deshacer la última división o fusión"
+                    title="Deshacer el último cambio"
                     className="rounded-lg border border-border-c px-3 py-1.5 text-sm text-text-secondary hover:border-accent-primary hover:text-accent-primary"
                   >
                     ↶ Deshacer
@@ -999,7 +996,7 @@ export default function Mirlo() {
                     {historial.length > 0 && (
                       <button
                         onClick={deshacer}
-                        title="Deshacer la última división o fusión"
+                        title="Deshacer el último cambio"
                         className="rounded-lg border border-border-c px-3 py-1.5 text-sm text-text-secondary hover:border-accent-primary hover:text-accent-primary"
                       >
                         ↶ Deshacer
