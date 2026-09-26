@@ -1,4 +1,5 @@
 import os
+import uuid
 
 import pytest
 
@@ -26,7 +27,7 @@ def test_registro_descarga(client, perfil, db_session, mock_ytdlp, monkeypatch, 
     nombre_archivo = os.path.basename(ruta_audio)
 
     contenido = Contenido(
-        perfil_id=perfil["id"],
+        perfil_id=uuid.UUID(perfil["id"]),
         nombre="Vídeo de YouTube",
         tipo="audio",
         ruta=nombre_archivo,

@@ -1,4 +1,8 @@
-FROM python:3.12-slim
+FROM pytorch/pytorch:2.8.0-cuda12.6-cudnn9-runtime
+
+# ffmpeg para el preprocesado de audio (WAV 16 kHz mono)
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 

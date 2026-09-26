@@ -46,9 +46,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Crea las tablas al arrancar (suficiente para desarrollo).
 Base.metadata.create_all(bind=engine)
-
 
 @app.get("/health")
 def health():
@@ -70,7 +68,7 @@ def crear_perfil(data: PerfilCreate, db: Session = Depends(get_db)):
 
 
 @app.put("/perfiles/{perfil_id}", response_model=PerfilOut)
-def editar_perfil(perfil_id: str, data: PerfilUpdate, db: Session = Depends(get_db)):
+def editar_perfil(perfil_id: uuid.UUID, data: PerfilUpdate, db: Session = Depends(get_db)):
     perfil = db.query(Perfil).filter(Perfil.id == perfil_id).first()
     if not perfil:
         raise HTTPException(status_code=404, detail="Perfil no encontrado")
@@ -82,7 +80,7 @@ def editar_perfil(perfil_id: str, data: PerfilUpdate, db: Session = Depends(get_
 
 
 @app.delete("/perfiles/{perfil_id}", status_code=204)
-def eliminar_perfil(perfil_id: str, db: Session = Depends(get_db)):
+def eliminar_perfil(perfil_id: uuid.UUID, db: Session = Depends(get_db)):
     perfil = db.query(Perfil).filter(Perfil.id == perfil_id).first()
     if not perfil:
         raise HTTPException(status_code=404, detail="Perfil no encontrado")
@@ -142,7 +140,7 @@ def youtube_desconectar(perfil_id: str):
 
 
 @app.post("/biblioteca/subir", response_model=ContenidoOut, status_code=201)
-def subir_archivo(perfil_id: str, archivo: UploadFile = File(...), db: Session = Depends(get_db)):
+def subir_archivo(perfil_id: uuid.UUID, archivo: UploadFile = File(...), db: Session = Depends(get_db)):
     nombre = archivo.filename or "sin_nombre"
     ext = os.path.splitext(nombre)[1].lower()
 
@@ -157,7 +155,7 @@ def subir_archivo(perfil_id: str, archivo: UploadFile = File(...), db: Session =
     if not perfil:
         raise HTTPException(404, "Perfil no encontrado")
 
-    carpeta = os.path.join(DESCARGAS_DIR, perfil_id)
+    carpeta = os.path.join(DESCARGAS_DIR, str(perfil_id))
     os.makedirs(carpeta, exist_ok=True)
 
     nombre_archivo = f"{uuid.uuid4().hex}{ext}"
@@ -181,7 +179,7 @@ def subir_archivo(perfil_id: str, archivo: UploadFile = File(...), db: Session =
 
 
 @app.get("/biblioteca/{perfil_id}", response_model=list[ContenidoOut])
-def listar_biblioteca(perfil_id: str, db: Session = Depends(get_db)):
+def listar_biblioteca(perfil_id: uuid.UUID, db: Session = Depends(get_db)):
     return (
         db.query(Contenido)
         .filter(Contenido.perfil_id == perfil_id)
@@ -191,7 +189,7 @@ def listar_biblioteca(perfil_id: str, db: Session = Depends(get_db)):
 
 
 @app.get("/biblioteca/contenido/{contenido_id}", response_model=ContenidoOut)
-def obtener_contenido(contenido_id: str, db: Session = Depends(get_db)):
+def obtener_contenido(contenido_id: uuid.UUID, db: Session = Depends(get_db)):
     contenido = db.query(Contenido).filter(Contenido.id == contenido_id).first()
     if not contenido:
         raise HTTPException(404, "Contenido no encontrado")
@@ -199,7 +197,7 @@ def obtener_contenido(contenido_id: str, db: Session = Depends(get_db)):
 
 
 @app.get("/biblioteca/archivo/{contenido_id}")
-def servir_archivo(contenido_id: str, db: Session = Depends(get_db)):
+def servir_archivo(contenido_id: uuid.UUID, db: Session = Depends(get_db)):
     contenido = db.query(Contenido).filter(Contenido.id == contenido_id).first()
     if not contenido:
         raise HTTPException(404, "Contenido no encontrado")
@@ -211,7 +209,7 @@ def servir_archivo(contenido_id: str, db: Session = Depends(get_db)):
 
 
 @app.delete("/biblioteca/contenido/{contenido_id}", status_code=204)
-def eliminar_contenido(contenido_id: str, db: Session = Depends(get_db)):
+def eliminar_contenido(contenido_id: uuid.UUID, db: Session = Depends(get_db)):
     contenido = db.query(Contenido).filter(Contenido.id == contenido_id).first()
     if not contenido:
         raise HTTPException(404, "Contenido no encontrado")
@@ -225,7 +223,7 @@ def eliminar_contenido(contenido_id: str, db: Session = Depends(get_db)):
 
 
 @app.post("/transcribir/{contenido_id}")
-def transcribir_contenido(contenido_id: str, db: Session = Depends(get_db)):
+def transcribir_contenido(contenido_id: uuid.UUID, db: Session = Depends(get_db)):
     contenido = db.query(Contenido).filter(Contenido.id == contenido_id).first()
     if not contenido:
         raise HTTPException(404, "Contenido no encontrado")
@@ -252,7 +250,7 @@ def transcribir_contenido(contenido_id: str, db: Session = Depends(get_db)):
 
 
 class TranscripcionCreate(BaseModel):
-    contenido_id: str
+    contenido_id: uuid.UUID
     segmentos: list
     idioma: str | None = None
     hablantes: list | None = None
@@ -276,7 +274,7 @@ def guardar_transcripcion(data: TranscripcionCreate, db: Session = Depends(get_d
 
 
 @app.get("/transcripciones/{contenido_id}", response_model=TranscripcionOut)
-def cargar_transcripcion(contenido_id: str, db: Session = Depends(get_db)):
+def cargar_transcripcion(contenido_id: uuid.UUID, db: Session = Depends(get_db)):
     transcripcion = (
         db.query(Transcripcion)
         .filter(Transcripcion.contenido_id == contenido_id)
@@ -383,7 +381,7 @@ EXPORT_MEDIA_TYPES = {
 
 @app.get("/exportar/{contenido_id}")
 def exportar_transcripcion(
-    contenido_id: str,
+    contenido_id: uuid.UUID,
     formato: str = "srt",
     vista: str = "original",
     db: Session = Depends(get_db),
@@ -443,7 +441,7 @@ class ConfigUpdate(BaseModel):
 
 
 @app.get("/config")
-def obtener_config(perfil_id: str, db: Session = Depends(get_db)):
+def obtener_config(perfil_id: uuid.UUID, db: Session = Depends(get_db)):
     perfil = db.query(Perfil).filter(Perfil.id == perfil_id).first()
     if not perfil:
         raise HTTPException(404, "Perfil no encontrado")
@@ -470,7 +468,7 @@ def obtener_config(perfil_id: str, db: Session = Depends(get_db)):
 
 
 @app.put("/config/{perfil_id}")
-def guardar_config(perfil_id: str, config: ConfigUpdate, db: Session = Depends(get_db)):
+def guardar_config(perfil_id: uuid.UUID, config: ConfigUpdate, db: Session = Depends(get_db)):
     perfil = db.query(Perfil).filter(Perfil.id == perfil_id).first()
     if not perfil:
         raise HTTPException(404, "Perfil no encontrado")

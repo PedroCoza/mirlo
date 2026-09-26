@@ -1,7 +1,9 @@
 fastapi
 uvicorn[standard]
 sqlalchemy
+# sqlalchemy>=2.1 usa psycopg 3 por defecto; 2.0 usaba psycopg2
 psycopg2-binary
+psycopg[binary]
 pydantic-settings
 google-auth
 google-auth-oauthlib

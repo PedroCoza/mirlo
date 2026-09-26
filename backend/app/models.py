@@ -10,8 +10,8 @@ from app.database import Base
 class Perfil(Base):
     __tablename__ = "perfiles"
 
-    id: Mapped[str] = mapped_column(
-        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, primary_key=True, default=uuid.uuid4
     )
     nombre: Mapped[str] = mapped_column(String(100), nullable=False)
     avatar: Mapped[str] = mapped_column(String(10), default="🐣")
@@ -31,11 +31,11 @@ class Perfil(Base):
 class Contenido(Base):
     __tablename__ = "contenidos"
 
-    id: Mapped[str] = mapped_column(
-        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, primary_key=True, default=uuid.uuid4
     )
-    perfil_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("perfiles.id"), nullable=False
+    perfil_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("perfiles.id"), nullable=False
     )
     nombre: Mapped[str] = mapped_column(String(255), nullable=False)
     tipo: Mapped[str] = mapped_column(String(10), nullable=False)  # audio | video
@@ -55,11 +55,11 @@ class Contenido(Base):
 class Transcripcion(Base):
     __tablename__ = "transcripciones"
 
-    id: Mapped[str] = mapped_column(
-        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, primary_key=True, default=uuid.uuid4
     )
-    contenido_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("contenidos.id"), nullable=False
+    contenido_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("contenidos.id"), nullable=False
     )
     segmentos: Mapped[list] = mapped_column(JSON, nullable=False)
     idioma: Mapped[str | None] = mapped_column(String(10), nullable=True)
