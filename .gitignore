@@ -21,6 +21,9 @@ out/
 .pytest_cache/
 descargas/
 
+# herramienta local de arranque de dev (no forma parte del producto)
+dev-env.bat
+
 # editor
 .vscode/
 .idea/

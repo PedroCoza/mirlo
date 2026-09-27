@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { Suspense, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -45,6 +45,14 @@ function normalizarTexto(s: string): string {
 }
 
 export default function Nido() {
+  return (
+    <Suspense fallback={null}>
+      <NidoContenido />
+    </Suspense>
+  );
+}
+
+function NidoContenido() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const perfil = useSyncExternalStore(
