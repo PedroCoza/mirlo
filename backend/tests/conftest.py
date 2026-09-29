@@ -199,3 +199,39 @@ def mock_oauth(monkeypatch):
     monkeypatch.setattr(app.youtube, "OAuth2Session", _FakeOAuth2Session)
     app.youtube._credenciales.clear()
     return _FakeOAuth2Session
+
+
+class _FakeRespuestaLibre:
+    def __init__(self, texto):
+        self._texto = texto
+
+    def raise_for_status(self):
+        pass
+
+    def json(self):
+        return {"translatedText": self._texto}
+
+
+@pytest.fixture()
+def mock_libretranslate(monkeypatch):
+    import app.traduccion
+
+    llamadas = []
+
+    def _post_fake(url, json=None, timeout=None):
+        llamadas.append(json)
+        return _FakeRespuestaLibre(f"[{json['target']}] {json['q']}")
+
+    monkeypatch.setattr(app.traduccion.requests, "post", _post_fake)
+    return llamadas
+
+
+@pytest.fixture()
+def mock_libretranslate_error(monkeypatch):
+    import app.traduccion
+    import requests as _requests
+
+    def _post_falla(url, json=None, timeout=None):
+        raise _requests.ConnectionError("servicio caido")
+
+    monkeypatch.setattr(app.traduccion.requests, "post", _post_falla)
