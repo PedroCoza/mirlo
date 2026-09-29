@@ -235,3 +235,26 @@ def mock_libretranslate_error(monkeypatch):
         raise _requests.ConnectionError("servicio caido")
 
     monkeypatch.setattr(app.traduccion.requests, "post", _post_falla)
+
+
+TURNOS_FAKE = [
+    {"start": 0.0, "end": 3.0, "speaker": "SPEAKER_00"},
+    {"start": 2.8, "end": 5.5, "speaker": "SPEAKER_01"},
+    {"start": 5.5, "end": 9.0, "speaker": "SPEAKER_00"},
+]
+
+
+@pytest.fixture()
+def mock_diarizar(monkeypatch):
+    import app.diarizacion
+
+    llamadas = {}
+
+    def _diarizar_fake(ruta, hf_token, num_hablantes=None):
+        llamadas["ruta"] = ruta
+        llamadas["token"] = hf_token
+        llamadas["num"] = num_hablantes
+        return [dict(t) for t in TURNOS_FAKE]
+
+    monkeypatch.setattr(app.diarizacion, "diarizar", _diarizar_fake)
+    return llamadas
