@@ -1,5 +1,6 @@
 """Prueba de flujo completo: biblioteca → transcripción → edición → exportación."""
 import io
+import time
 
 import pytest
 
@@ -64,3 +65,64 @@ def test_transcribir_sin_audio_da_error_claro(
 
     assert resp.status_code == 400
     assert "pista de audio" in resp.json()["detail"]
+
+
+def test_flujo_traducido(
+    client, perfil, tmp_descargas, mock_whisperx, mock_libretranslate
+):
+    contenido = _subir_audio(client, perfil["id"], "podcast-traducido.m4a").json()
+    client.post(f"/transcribir/{contenido['id']}")
+    guardado = client.post(
+        "/transcripciones",
+        json={"contenido_id": contenido["id"], "segmentos": mock_whisperx},
+    )
+    transcripcion = guardado.json()
+
+    traducido = client.post(
+        f"/traducir/{transcripcion['id']}", json={"idioma": "en"}
+    )
+    assert traducido.status_code == 201
+
+    exportado = client.get(
+        f"/exportar/{contenido['id']}?formato=srt&vista=traduccion"
+    )
+    assert exportado.status_code == 200
+    assert "[en] Hola mundo" in exportado.text
+
+
+def test_flujo_diarizado_con_nombre_de_hablante(
+    client, perfil, tmp_descargas, mock_whisperx, mock_diarizar
+):
+    contenido = _subir_audio(client, perfil["id"], "podcast-diarizado.m4a").json()
+    client.post(f"/transcribir/{contenido['id']}")
+    guardado = client.post(
+        "/transcripciones",
+        json={"contenido_id": contenido["id"], "segmentos": mock_whisperx},
+    )
+    transcripcion = guardado.json()
+
+    client.put(
+        f"/config/{perfil['id']}",
+        json={
+            "modelo": "base",
+            "compute_type": "int8",
+            "batch_size": 8,
+            "hf_token": "hf-fake",
+        },
+    )
+    diarizado = client.post(f"/diarizar/{transcripcion['id']}", json={})
+    assert diarizado.status_code == 200
+
+    time.sleep(1.1)
+    segmentos = diarizado.json()["segmentos"]
+    for s in segmentos:
+        if s.get("hablante") == "SPEAKER_00":
+            s["hablante"] = "Entrevistador"
+    client.post(
+        "/transcripciones",
+        json={"contenido_id": contenido["id"], "segmentos": segmentos},
+    )
+
+    exportado = client.get(f"/exportar/{contenido['id']}?formato=json")
+    datos = exportado.json()
+    assert datos[0]["hablante"] == "Entrevistador"
