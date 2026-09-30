@@ -46,3 +46,55 @@ def test_oauth_desconectar(mock_oauth):
 def test_videos_sin_creds():
     with pytest.raises(ValueError):
         youtube.listar_videos("perfil-sin-credenciales")
+
+
+def test_listar_videos_del_canal(monkeypatch):
+    class _PlaylistItems:
+        def list(self, part, playlistId, maxResults):
+            return self
+
+        def execute(self):
+            return {
+                "items": [
+                    {
+                        "snippet": {
+                            "title": "Mi vídeo",
+                            "thumbnails": {
+                                "default": {"url": "https://i.ytimg.com/vi/abc/vi.jpg"}
+                            },
+                            "resourceId": {"videoId": "abc123"},
+                        }
+                    }
+                ]
+            }
+
+    class _Canal:
+        def list(self, part, mine):
+            return self
+
+        def execute(self):
+            return {
+                "items": [
+                    {"contentDetails": {"relatedPlaylists": {"uploads": "UU123"}}}
+                ]
+            }
+
+    class _ApiFalsa:
+        def channels(self):
+            return _Canal()
+
+        def playlistItems(self):
+            return _PlaylistItems()
+
+    youtube._credenciales["perfil-1"] = object()
+    monkeypatch.setattr(youtube, "build", lambda *args, **kwargs: _ApiFalsa())
+
+    videos = youtube.listar_videos("perfil-1")
+
+    assert videos == [
+        {
+            "id": "abc123",
+            "titulo": "Mi vídeo",
+            "thumbnail": "https://i.ytimg.com/vi/abc/vi.jpg",
+        }
+    ]
