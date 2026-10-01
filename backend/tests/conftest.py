@@ -49,7 +49,9 @@ def db_session(engine):
 
 
 @pytest.fixture()
-def client(engine):
+def client(engine, monkeypatch):
+    import app.main as app_main
+
     SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
     def _override_get_db():
@@ -60,6 +62,8 @@ def client(engine):
             db.close()
 
     app.dependency_overrides[get_db] = _override_get_db
+    # Las tareas en segundo plano abren su propia sesion contra el mismo engine
+    monkeypatch.setattr(app_main, "SessionLocal", SessionLocal)
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()

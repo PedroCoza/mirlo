@@ -3,14 +3,14 @@ import uuid
 import shutil
 
 import torch
-from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
+from fastapi import FastAPI, BackgroundTasks, Depends, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse, Response
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
 from app.config import settings
-from app.database import Base, engine, get_db
+from app.database import Base, SessionLocal, engine, get_db
 from app.models import Perfil, Contenido, Transcripcion, Traduccion
 from app.schemas import (
     PerfilCreate,
@@ -88,9 +88,10 @@ def eliminar_perfil(perfil_id: uuid.UUID, db: Session = Depends(get_db)):
     db.commit()
 
 
-class DescargaRequest(BaseModel):
+class RegistrarRequest(BaseModel):
     video_id: str
-    perfil_id: str
+    perfil_id: uuid.UUID
+    titulo: str
 
 
 @app.get("/youtube/auth")
@@ -122,15 +123,61 @@ def youtube_videos(perfil_id: str):
         raise HTTPException(500, str(e))
 
 
-@app.post("/youtube/descargar")
-def youtube_descargar(data: DescargaRequest):
+def _descargar_youtube(contenido_id, video_id, perfil_id):
+    # Tarea en segundo plano: deja el contenido en pendiente o lo elimina si falla
+    db = SessionLocal()
     try:
-        ruta = youtube.descargar_audio(data.video_id, data.perfil_id)
-        if not ruta:
-            raise HTTPException(500, "No se pudo descargar el audio")
-        return {"ruta": ruta, "video_id": data.video_id}
-    except Exception as e:
-        raise HTTPException(500, str(e))
+        contenido = db.query(Contenido).filter(Contenido.id == contenido_id).first()
+        if not contenido:
+            return
+        try:
+            ruta = youtube.descargar_audio(video_id, str(perfil_id))
+            if not ruta:
+                raise RuntimeError("La descarga no produjo ningun archivo")
+        except Exception:
+            db.delete(contenido)
+            db.commit()
+            return
+        contenido.ruta = os.path.basename(ruta)
+        contenido.estado = "pendiente"
+        db.commit()
+    finally:
+        db.close()
+
+
+@app.post("/youtube/registrar", response_model=ContenidoOut, status_code=201)
+def youtube_registrar(
+    data: RegistrarRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)
+):
+    perfil = db.query(Perfil).filter(Perfil.id == data.perfil_id).first()
+    if not perfil:
+        raise HTTPException(404, "Perfil no encontrado")
+
+    existente = (
+        db.query(Contenido)
+        .filter(Contenido.video_id == data.video_id, Contenido.perfil_id == perfil.id)
+        .first()
+    )
+    if existente:
+        return existente
+
+    contenido = Contenido(
+        perfil_id=perfil.id,
+        nombre=data.titulo,
+        tipo="audio",
+        ruta="",
+        origen="youtube",
+        video_id=data.video_id,
+        estado="descargando",
+    )
+    db.add(contenido)
+    db.commit()
+    db.refresh(contenido)
+
+    background_tasks.add_task(
+        _descargar_youtube, contenido.id, data.video_id, perfil.id
+    )
+    return contenido
 
 
 @app.delete("/youtube/desconectar")

@@ -1,10 +1,8 @@
 import os
-import uuid
 
 import pytest
 
 import app.youtube as youtube
-from app.models import Contenido
 
 pytestmark = [pytest.mark.integration, pytest.mark.youtube]
 
@@ -19,30 +17,32 @@ def test_descarga(mock_ytdlp, monkeypatch, tmp_path):
     assert os.path.exists(ruta)
 
 
-def test_registro_descarga(client, perfil, db_session, mock_ytdlp, monkeypatch, tmp_path):
+def test_registro_descarga(client, perfil, mock_ytdlp, monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
-    perfil_id = perfil["id"]
+    peticion = {
+        "video_id": "abc123",
+        "perfil_id": perfil["id"],
+        "titulo": "Vídeo de YouTube",
+    }
 
-    ruta_audio = youtube.descargar_audio("dQw4w9WgXcQ", perfil_id)
-    nombre_archivo = os.path.basename(ruta_audio)
+    resp = client.post("/youtube/registrar", json=peticion)
+    assert resp.status_code == 201, resp.text
+    contenido = resp.json()
+    assert contenido["estado"] == "descargando"
+    assert contenido["origen"] == "youtube"
+    assert contenido["video_id"] == "abc123"
 
-    contenido = Contenido(
-        perfil_id=uuid.UUID(perfil["id"]),
-        nombre="Vídeo de YouTube",
-        tipo="audio",
-        ruta=nombre_archivo,
-        origen="youtube",
-        estado="procesado",
-    )
-    db_session.add(contenido)
-    db_session.commit()
-    db_session.refresh(contenido)
-
-    listado = client.get(f"/biblioteca/{perfil_id}").json()
-    encontrados = [c for c in listado if c["id"] == str(contenido.id)]
+    # La descarga en segundo plano ya se ha ejecutado al cerrar la peticion
+    listado = client.get(f"/biblioteca/{perfil['id']}").json()
+    encontrados = [c for c in listado if c["id"] == contenido["id"]]
     assert len(encontrados) == 1
-    assert encontrados[0]["origen"] == "youtube"
-    assert encontrados[0]["estado"] == "procesado"
+    assert encontrados[0]["estado"] == "pendiente"
+    assert encontrados[0]["ruta"].endswith(".mp3")
+
+    # Registrar el mismo video devuelve el contenido existente
+    resp2 = client.post("/youtube/registrar", json=peticion)
+    assert resp2.status_code == 201
+    assert resp2.json()["id"] == contenido["id"]
 
 
 def test_descarga_error(mock_ytdlp_error, monkeypatch, tmp_path):
@@ -52,12 +52,23 @@ def test_descarga_error(mock_ytdlp_error, monkeypatch, tmp_path):
         youtube.descargar_audio("invalido", "perfil-err")
 
 
-def test_endpoint_500(client, mock_ytdlp_error, perfil):
+def test_registro_fallo_limpia(client, perfil, mock_ytdlp_error, monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+
     resp = client.post(
-        "/youtube/descargar",
-        json={"video_id": "invalido", "perfil_id": perfil["id"]},
+        "/youtube/registrar",
+        json={
+            "video_id": "invalido",
+            "perfil_id": perfil["id"],
+            "titulo": "Vídeo de YouTube",
+        },
     )
-    assert resp.status_code == 500
+    assert resp.status_code == 201
+    contenido = resp.json()
+
+    # La descarga falla en segundo plano y el contenido queda eliminado
+    detalle = client.get(f"/biblioteca/contenido/{contenido['id']}")
+    assert detalle.status_code == 404
 
 
 def test_endpoint_videos_401(client, mock_oauth):

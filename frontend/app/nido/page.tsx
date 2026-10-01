@@ -14,6 +14,7 @@ type Contenido = {
   nombre: string;
   tipo: string;
   origen: string;
+  video_id: string | null;
   estado: string;
   creado_en: string;
 };
@@ -162,24 +163,46 @@ function NidoContenido() {
       .finally(() => setCargandoYoutube(false));
   };
 
+  // Los vídeos del canal se cargan solos al estar conectado.
+  useEffect(() => {
+    if (!youtubeConectado || !perfil) return;
+    fetch(`${API_URL}/youtube/videos?perfil_id=${perfil.id}`)
+      .then((r) => {
+        if (!r.ok) throw new Error();
+        return r.json();
+      })
+      .then(setVideos)
+      .catch(() => {});
+  }, [youtubeConectado, perfil]);
+
   const conectarYoutube = () => {
     if (!perfil) return;
     window.location.href = `${API_URL}/youtube/auth?perfil_id=${perfil.id}`;
   };
 
-  const descargarVideo = async (videoId: string) => {
+  const procesarVideo = async (v: VideoYouTube) => {
     if (!perfil) return;
-    setDescargando(videoId);
+    setDescargando(v.id);
+    setErrorYoutube(null);
     try {
-      const res = await fetch(`${API_URL}/youtube/descargar`, {
+      const res = await fetch(`${API_URL}/youtube/registrar`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ video_id: videoId, perfil_id: perfil.id }),
+        body: JSON.stringify({
+          video_id: v.id,
+          perfil_id: perfil.id,
+          titulo: v.titulo,
+        }),
       });
       if (!res.ok) throw new Error();
+      const contenido = await res.json();
+      router.push(
+        contenido.estado === "pendiente"
+          ? `/incubadora/${contenido.id}`
+          : `/mirlo/${contenido.id}`
+      );
     } catch {
-      setErrorYoutube("No se pudo descargar el vídeo");
-    } finally {
+      setErrorYoutube("No se pudo iniciar la descarga del vídeo");
       setDescargando(null);
     }
   };
@@ -209,6 +232,7 @@ function NidoContenido() {
       lista = [...lista].sort((a, b) => a.nombre.localeCompare(b.nombre));
     } else if (orden === "estado") {
       const peso: Record<string, number> = {
+        descargando: 0,
         pendiente: 0,
         procesado: 1,
         traducido: 2,
@@ -332,7 +356,7 @@ function NidoContenido() {
                     </span>
                     <Link
                       href={
-                        a.estado === "pendiente"
+                        a.estado === "pendiente" || a.estado === "descargando"
                           ? `/incubadora/${a.id}`
                           : `/mirlo/${a.id}`
                       }
@@ -343,6 +367,7 @@ function NidoContenido() {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="rounded-full bg-bg-elevated px-2 py-0.5 text-xs text-text-secondary">
+                      {a.estado === "descargando" && "⬇ Descargando"}
                       {a.estado === "pendiente" && "○ Pendiente"}
                       {a.estado === "procesado" && "🎙️ Transcrito"}
                       {a.estado === "traducido" && "🌐 Traducido"}
@@ -350,13 +375,15 @@ function NidoContenido() {
                     <div className="flex items-center gap-2">
                       <Link
                         href={
-                          a.estado === "pendiente"
+                          a.estado === "pendiente" || a.estado === "descargando"
                             ? `/incubadora/${a.id}`
                             : `/mirlo/${a.id}`
                         }
                         className="rounded-lg bg-accent-primary/20 px-2.5 py-1 text-xs font-medium text-accent-primary"
                       >
-                        {a.estado === "pendiente" ? "▶ Procesar" : "Abrir"}
+                        {a.estado === "traducido" || a.estado === "procesado"
+                          ? "Abrir"
+                          : "▶ Procesar"}
                       </Link>
                       <button
                         onClick={() => eliminarArchivo(a.id)}
@@ -455,7 +482,7 @@ function NidoContenido() {
             <p className="text-sm text-text-secondary">
               {videos.length > 0
                 ? `${videos.length} vídeos en tu canal`
-                : "Carga tus vídeos para descargarlos"}
+                : "Sin vídeos cargados"}
             </p>
             <div className="flex gap-2">
               <button
@@ -463,7 +490,7 @@ function NidoContenido() {
                 disabled={cargandoYoutube}
                 className="rounded-lg bg-accent-primary px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
               >
-                {cargandoYoutube ? "Cargando…" : "Cargar vídeos"}
+                {cargandoYoutube ? "Cargando…" : "↻ Actualizar"}
               </button>
               <button
                 onClick={desconectarYoutube}
@@ -479,33 +506,66 @@ function NidoContenido() {
             onCerrar={() => setErrorYoutube(null)}
           />
 
+          {videos.length === 0 && cargandoYoutube && (
+            <p className="py-8 text-center text-sm text-text-secondary">
+              Cargando los vídeos del canal…
+            </p>
+          )}
+
           {videos.length > 0 && (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {videos.map((v) => (
-                <div
-                  key={v.id}
-                  className="flex flex-col gap-2 rounded-2xl border border-border-c bg-bg-surface p-3"
-                >
-                  <Image
-                    src={v.thumbnail}
-                    alt={v.titulo}
-                    width={320}
-                    height={180}
-                    unoptimized
-                    className="aspect-video w-full rounded-lg object-cover"
-                  />
-                  <p className="line-clamp-2 text-sm font-medium">{v.titulo}</p>
-                  <button
-                    onClick={() => descargarVideo(v.id)}
-                    disabled={descargando === v.id}
-                    className="rounded-lg bg-accent-primary/20 px-3 py-1.5 text-xs font-medium text-accent-primary disabled:opacity-50"
+              {videos.map((v) => {
+                const contenido = archivos.find((a) => a.video_id === v.id);
+                return (
+                  <div
+                    key={v.id}
+                    className="flex flex-col gap-2 rounded-2xl border border-border-c bg-bg-surface p-3"
                   >
-                    {descargando === v.id
-                      ? "Descargando…"
-                      : "⬇ Descargar audio"}
-                  </button>
-                </div>
-              ))}
+                    <Image
+                      src={v.thumbnail}
+                      alt={v.titulo}
+                      width={320}
+                      height={180}
+                      unoptimized
+                      className="aspect-video w-full rounded-lg object-cover"
+                    />
+                    <p className="line-clamp-2 text-sm font-medium">{v.titulo}</p>
+                    <div className="flex items-center justify-between">
+                      <span className="rounded-full bg-bg-elevated px-2 py-0.5 text-xs text-text-secondary">
+                        {contenido?.estado === "descargando" && "⬇ Descargando"}
+                        {contenido?.estado === "pendiente" && "○ Pendiente"}
+                        {contenido?.estado === "procesado" && "🎙️ Transcrito"}
+                        {contenido?.estado === "traducido" && "🌐 Traducido"}
+                        {!contenido && "○ Sin procesar"}
+                      </span>
+                      {contenido ? (
+                        <Link
+                          href={
+                            contenido.estado === "pendiente" ||
+                            contenido.estado === "descargando"
+                              ? `/incubadora/${contenido.id}`
+                              : `/mirlo/${contenido.id}`
+                          }
+                          className="rounded-lg bg-accent-primary/20 px-2.5 py-1 text-xs font-medium text-accent-primary"
+                        >
+                          {contenido.estado === "procesado" ||
+                          contenido.estado === "traducido"
+                            ? "Abrir"
+                            : "▶ Procesar"}
+                        </Link>
+                      ) : (
+                        <button
+                          onClick={() => procesarVideo(v)}
+                          disabled={descargando === v.id}
+                          className="cursor-pointer rounded-lg bg-accent-primary/20 px-2.5 py-1 text-xs font-medium text-accent-primary disabled:opacity-50"
+                        >
+                          {descargando === v.id ? "Iniciando…" : "▶ Procesar"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

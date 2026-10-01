@@ -32,6 +32,7 @@ class ContenidoOut(BaseModel):
     tipo: str
     ruta: str
     origen: str
+    video_id: str | None = None
     estado: str
     creado_en: datetime
 

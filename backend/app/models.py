@@ -41,7 +41,8 @@ class Contenido(Base):
     tipo: Mapped[str] = mapped_column(String(10), nullable=False)  # audio | video
     ruta: Mapped[str] = mapped_column(String(500), nullable=False)
     origen: Mapped[str] = mapped_column(String(10), default="local")  # local | youtube
-    estado: Mapped[str] = mapped_column(String(15), default="pendiente")  # pendiente | procesado | traducido
+    video_id: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    estado: Mapped[str] = mapped_column(String(15), default="pendiente")  # pendiente | procesado | traducido | descargando
     creado_en: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now()
     )

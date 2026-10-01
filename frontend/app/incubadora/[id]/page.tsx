@@ -80,6 +80,18 @@ export default function Incubadora() {
       .finally(() => setCargando(false));
   }, [params.id]);
 
+  // Los contenidos de YouTube se descargan en segundo plano.
+  useEffect(() => {
+    if (contenido?.estado !== "descargando") return;
+    const intervalo = setInterval(() => {
+      fetch(`${API_URL}/biblioteca/contenido/${params.id}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => d && setContenido(d))
+        .catch(() => {});
+    }, 2000);
+    return () => clearInterval(intervalo);
+  }, [contenido, params.id]);
+
   const lanzarProcesamiento = async () => {
     setFase("transcribiendo");
     setError(null);
@@ -169,7 +181,10 @@ export default function Incubadora() {
     }
   };
 
-  const yaProcesado = contenido !== null && contenido.estado !== "pendiente";
+  const yaProcesado =
+    contenido !== null &&
+    contenido.estado !== "pendiente" &&
+    contenido.estado !== "descargando";
 
   if (!perfil) return null;
 
@@ -206,7 +221,19 @@ export default function Incubadora() {
             </div>
 
             <div className="rounded-2xl border border-border-c bg-bg-surface p-4">
-              {contenido.tipo === "video" ? (
+              {contenido.estado === "descargando" ? (
+                <div className="flex aspect-video w-full flex-col items-center justify-center gap-2 text-center">
+                  <span className="animate-pulse text-3xl" aria-hidden>
+                    ⬇
+                  </span>
+                  <p className="text-sm text-text-secondary">
+                    Descargando el audio de YouTube…
+                  </p>
+                  <p className="text-xs text-text-secondary">
+                    Podrás lanzar el procesamiento en cuanto termine.
+                  </p>
+                </div>
+              ) : contenido.tipo === "video" ? (
                 <video
                   src={`${API_URL}/biblioteca/archivo/${params.id}`}
                   controls
@@ -246,6 +273,7 @@ export default function Incubadora() {
               </p>
               <div className="mt-4">
                 <span className="rounded-full bg-bg-elevated px-2 py-0.5 text-xs text-text-secondary">
+                  {contenido.estado === "descargando" && "⬇ Descargando"}
                   {contenido.estado === "pendiente" && "○ Pendiente"}
                   {contenido.estado === "procesado" && "🎙️ Transcrito"}
                   {contenido.estado === "traducido" && "🌐 Traducido"}
@@ -346,16 +374,18 @@ export default function Incubadora() {
                 onClick={() =>
                   yaProcesado ? setConfirmando(true) : lanzarProcesamiento()
                 }
-                disabled={fase !== null}
-                className="w-full rounded-lg bg-accent-primary px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50"
+                disabled={fase !== null || contenido.estado === "descargando"}
+                className="w-full cursor-pointer rounded-lg bg-accent-primary px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50"
               >
-                {fase === "transcribiendo"
-                  ? "Transcribiendo…"
-                  : fase === "identificando"
-                    ? "Identificando…"
-                    : fase === "traduciendo"
-                      ? "Traduciendo…"
-                      : "▶ Lanzar procesamiento"}
+                {contenido.estado === "descargando"
+                  ? "Descargando audio…"
+                  : fase === "transcribiendo"
+                    ? "Transcribiendo…"
+                    : fase === "identificando"
+                      ? "Identificando…"
+                      : fase === "traduciendo"
+                        ? "Traduciendo…"
+                        : "▶ Lanzar procesamiento"}
               </button>
               {fase && (
                 <p className="mt-3 text-center text-xs text-accent-primary">
