@@ -5,6 +5,7 @@ import Link from "next/link";
 import "./globals.css";
 import { ThemeProvider } from "./theme-provider";
 import { ThemeSwitch } from "./theme-switch";
+import { EnlaceConfig } from "./config-enlace";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -44,7 +45,10 @@ export default function RootLayout({
               </span>
               Mirlo
             </Link>
-            <ThemeSwitch />
+            <div className="flex items-center gap-2">
+              <EnlaceConfig />
+              <ThemeSwitch />
+            </div>
           </header>
           <main className="flex-1">{children}</main>
           <footer className="flex items-center justify-between border-t border-border-c bg-bg-surface px-6 py-4 text-sm text-text-secondary">

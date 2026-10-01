@@ -46,13 +46,6 @@ export default function Landing() {
           {apiEstado === "ok" && "🟢 conectada"}
           {apiEstado === "error" && "🔴 sin conexión"}
         </p>
-        <a
-          href="/configuracion"
-          className="hover:text-text-primary"
-          title="Configuración"
-        >
-          ⚙
-        </a>
       </div>
     </main>
   );

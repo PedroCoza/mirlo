@@ -114,6 +114,9 @@ export default function Configuracion() {
   return (
     <main className="mx-auto flex min-h-[calc(100vh-120px)] max-w-2xl flex-col gap-6 px-6 py-12">
       <h1 className="text-2xl font-bold">Configuración del sistema</h1>
+      <p className="text-sm text-text-secondary">
+        Parámetros de inferencia guardados en el perfil activo.
+      </p>
 
       <section className="rounded-2xl border border-border-c bg-bg-surface p-6">
         <h2 className="mb-3 text-lg font-semibold">Hardware detectado</h2>
@@ -195,9 +198,46 @@ export default function Configuracion() {
 
       <section className="rounded-2xl border border-border-c bg-bg-surface p-6">
         <h2 className="mb-2 text-lg font-semibold">Token de HuggingFace</h2>
-        <p className="mb-3 text-sm text-text-secondary">
-          Necesario para la diarización con pyannote. Se almacena en la base de
-          datos local.
+        <p className="mb-2 text-sm text-text-secondary">
+          La diarización usa modelos de pyannote publicados en HuggingFace con
+          acceso restringido: hace falta una cuenta, aceptar las condiciones de
+          los tres repositorios y generar un token de acceso.
+        </p>
+        <ul className="mb-3 flex flex-col gap-1 text-sm">
+          <li>
+            <a
+              href="https://huggingface.co/pyannote/segmentation"
+              target="_blank"
+              rel="noreferrer"
+              className="text-accent-primary hover:underline"
+            >
+              pyannote/segmentation
+            </a>
+          </li>
+          <li>
+            <a
+              href="https://huggingface.co/pyannote/speaker-diarization-3.1"
+              target="_blank"
+              rel="noreferrer"
+              className="text-accent-primary hover:underline"
+            >
+              pyannote/speaker-diarization-3.1
+            </a>
+          </li>
+          <li>
+            <a
+              href="https://huggingface.co/pyannote/speaker-diarization-community-1"
+              target="_blank"
+              rel="noreferrer"
+              className="text-accent-primary hover:underline"
+            >
+              pyannote/speaker-diarization-community-1
+            </a>
+          </li>
+        </ul>
+        <p className="mb-3 text-xs text-text-secondary">
+          El token se guarda en la base de datos local, asociado al perfil
+          activo.
         </p>
         <input
           type="password"
@@ -224,10 +264,10 @@ export default function Configuracion() {
           <span className="text-sm text-accent-secondary">✓ Guardado</span>
         )}
         <Link
-          href="/"
+          href="/nido"
           className="ml-auto text-sm text-text-secondary hover:text-text-primary"
         >
-          ← Volver a Inicio
+          ← Volver al Nido
         </Link>
       </div>
     </main>
