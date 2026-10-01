@@ -451,11 +451,17 @@ export default function Mirlo() {
             <div className="mb-2 flex items-center justify-between">
               <h2 className="text-lg font-semibold">Transcripción</h2>
               <label className="flex cursor-pointer items-center gap-2 text-xs text-text-secondary">
-                <input
-                  type="checkbox"
-                  checked={autoSeguir}
-                  onChange={(e) => setAutoSeguir(e.target.checked)}
-                />
+                <span className="relative inline-flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={autoSeguir}
+                    onChange={(e) => setAutoSeguir(e.target.checked)}
+                    aria-label="Auto-seguir"
+                    className="peer sr-only"
+                  />
+                  <span className="h-5 w-9 rounded-full bg-bg-elevated transition-colors peer-checked:bg-accent-primary" />
+                  <span className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-text-secondary transition-transform peer-checked:translate-x-4 peer-checked:bg-white" />
+                </span>
                 Auto-seguir
               </label>
             </div>
@@ -668,11 +674,17 @@ export default function Mirlo() {
                   ))}
                 </div>
                 <label className="flex cursor-pointer items-center gap-2 text-xs text-text-secondary">
-                  <input
-                    type="checkbox"
-                    checked={autoSeguir}
-                    onChange={(e) => setAutoSeguir(e.target.checked)}
-                  />
+                  <span className="relative inline-flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={autoSeguir}
+                      onChange={(e) => setAutoSeguir(e.target.checked)}
+                      aria-label="Auto-seguir"
+                      className="peer sr-only"
+                    />
+                    <span className="h-5 w-9 rounded-full bg-bg-elevated transition-colors peer-checked:bg-accent-primary" />
+                    <span className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-text-secondary transition-transform peer-checked:translate-x-4 peer-checked:bg-white" />
+                  </span>
                   Auto-seguir
                 </label>
               </div>
@@ -774,11 +786,17 @@ export default function Mirlo() {
                   )}
                 </div>
                 <label className="flex cursor-pointer items-center gap-2 text-xs text-text-secondary">
-                  <input
-                    type="checkbox"
-                    checked={autoSeguir}
-                    onChange={(e) => setAutoSeguir(e.target.checked)}
-                  />
+                  <span className="relative inline-flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={autoSeguir}
+                      onChange={(e) => setAutoSeguir(e.target.checked)}
+                      aria-label="Auto-seguir"
+                      className="peer sr-only"
+                    />
+                    <span className="h-5 w-9 rounded-full bg-bg-elevated transition-colors peer-checked:bg-accent-primary" />
+                    <span className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-text-secondary transition-transform peer-checked:translate-x-4 peer-checked:bg-white" />
+                  </span>
                   Auto-seguir
                 </label>
               </div>
