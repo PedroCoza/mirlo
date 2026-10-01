@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Image from "next/image";
 import Link from "next/link";
 import "./globals.css";
 import { ThemeProvider } from "./theme-provider";
@@ -34,8 +35,14 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col bg-bg-primary text-text-primary">
         <ThemeProvider>
           <header className="flex items-center justify-between border-b border-border-c bg-bg-surface px-6 py-3">
-            <Link href="/" className="text-lg font-bold tracking-tight">
-              🐦 Mirlo
+            <Link
+              href="/"
+              className="flex items-center gap-2 text-lg font-bold tracking-tight"
+            >
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#F1F3F2]">
+                <Image src="/logo.svg" alt="" width={22} height={22} unoptimized />
+              </span>
+              Mirlo
             </Link>
             <ThemeSwitch />
           </header>

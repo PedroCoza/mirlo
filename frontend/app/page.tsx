@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
 
 export default function Landing() {
@@ -19,9 +20,9 @@ export default function Landing() {
 
   return (
     <main className="flex min-h-[calc(100vh-120px)] flex-col items-center justify-center gap-8 px-6 text-center">
-      <div className="text-6xl" aria-hidden>
-        🐦
-      </div>
+      <span className="flex h-28 w-28 items-center justify-center rounded-3xl bg-[#F1F3F2]">
+        <Image src="/logo.svg" alt="" width={96} height={96} unoptimized />
+      </span>
       <h1 className="text-5xl font-bold tracking-tight sm:text-6xl">Mirlo</h1>
       <p className="max-w-xl text-lg text-text-secondary sm:text-xl">
         Transcripción · Traducción · Diarización de Audio
