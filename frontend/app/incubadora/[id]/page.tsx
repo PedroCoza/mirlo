@@ -14,6 +14,11 @@ type Contenido = {
   estado: string;
   creado_en: string;
 };
+type TranscripcionGuardada = {
+  id: string;
+  segmentos: unknown[];
+  hablantes: string[] | null;
+};
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -62,6 +67,8 @@ export default function Incubadora() {
   const [diarizar, setDiarizar] = useState(false);
   const [numHablantes, setNumHablantes] = useState("");
   const [confirmando, setConfirmando] = useState(false);
+  const [transcripcionExistente, setTranscripcionExistente] =
+    useState<TranscripcionGuardada | null>(null);
 
   useEffect(() => {
     if (hidratado && !perfil) {
@@ -92,6 +99,63 @@ export default function Incubadora() {
     return () => clearInterval(intervalo);
   }, [contenido, params.id]);
 
+  // Si hay transcripción guardada (quizá editada), los procedimientos
+  // posteriores se lanzan sobre ella sin repetir la transcripción.
+  useEffect(() => {
+    fetch(`${API_URL}/transcripciones/${params.id}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((t) => t && setTranscripcionExistente(t))
+      .catch(() => {});
+  }, [params.id]);
+
+  const aplicarProcedimientos = async (
+    transcripcionId: string,
+    segmentosIniciales: unknown[],
+  ) => {
+    let segmentos = segmentosIniciales;
+
+    if (diarizar) {
+      setFase("identificando");
+      const resDiar = await fetch(`${API_URL}/diarizar/${transcripcionId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          numHablantes ? { num_hablantes: Number(numHablantes) } : {},
+        ),
+      });
+      if (!resDiar.ok) {
+        const err = await resDiar.json().catch(() => ({}));
+        throw new Error(err.detail || "No se pudo identificar a los hablantes");
+      }
+      const diarizada = await resDiar.json();
+      segmentos = diarizada.segmentos;
+      sessionStorage.setItem(
+        `mirlo-hablantes-${params.id}`,
+        JSON.stringify(diarizada.hablantes),
+      );
+    }
+
+    if (traducir) {
+      setFase("traduciendo");
+      const resTrad = await fetch(`${API_URL}/traducir/${transcripcionId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idioma }),
+      });
+      if (!resTrad.ok) {
+        const err = await resTrad.json().catch(() => ({}));
+        throw new Error(err.detail || "No se pudo traducir");
+      }
+      const traduccion = await resTrad.json();
+      sessionStorage.setItem(
+        `mirlo-traduccion-${params.id}`,
+        JSON.stringify(traduccion),
+      );
+    }
+
+    return segmentos;
+  };
+
   const lanzarProcesamiento = async () => {
     setFase("transcribiendo");
     setError(null);
@@ -119,55 +183,40 @@ export default function Incubadora() {
           throw new Error("No se pudo guardar la transcripción");
         }
         const transcripcion = await guardado.json();
-
-        if (diarizar) {
-          setFase("identificando");
-          const resDiar = await fetch(
-            `${API_URL}/diarizar/${transcripcion.id}`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(
-                numHablantes ? { num_hablantes: Number(numHablantes) } : {},
-              ),
-            },
-          );
-          if (!resDiar.ok) {
-            const err = await resDiar.json().catch(() => ({}));
-            throw new Error(
-              err.detail || "No se pudo identificar a los hablantes",
-            );
-          }
-          const diarizada = await resDiar.json();
-          segmentos = diarizada.segmentos;
-          sessionStorage.setItem(
-            `mirlo-hablantes-${params.id}`,
-            JSON.stringify(diarizada.hablantes),
-          );
-        }
-
-        if (traducir) {
-          setFase("traduciendo");
-          const resTrad = await fetch(
-            `${API_URL}/traducir/${transcripcion.id}`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ idioma }),
-            },
-          );
-          if (!resTrad.ok) {
-            const err = await resTrad.json().catch(() => ({}));
-            throw new Error(err.detail || "No se pudo traducir");
-          }
-          const traduccion = await resTrad.json();
-          sessionStorage.setItem(
-            `mirlo-traduccion-${params.id}`,
-            JSON.stringify(traduccion),
-          );
-        }
+        segmentos = await aplicarProcedimientos(transcripcion.id, segmentos);
       }
 
+      sessionStorage.setItem(
+        `mirlo-transcripcion-${params.id}`,
+        JSON.stringify(segmentos),
+      );
+      router.push(`/mirlo/${params.id}`);
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "No se pudo procesar el contenido",
+      );
+      setFase(null);
+    }
+  };
+
+  const continuarProcesamiento = async () => {
+    if (!transcripcionExistente) return;
+    setError(null);
+    try {
+      if (!diarizar && !traducir) {
+        router.push(`/mirlo/${params.id}`);
+        return;
+      }
+      if (transcripcionExistente.hablantes?.length) {
+        sessionStorage.setItem(
+          `mirlo-hablantes-${params.id}`,
+          JSON.stringify(transcripcionExistente.hablantes),
+        );
+      }
+      const segmentos = await aplicarProcedimientos(
+        transcripcionExistente.id,
+        transcripcionExistente.segmentos,
+      );
       sessionStorage.setItem(
         `mirlo-transcripcion-${params.id}`,
         JSON.stringify(segmentos),
@@ -264,12 +313,13 @@ export default function Incubadora() {
               <div className="mb-2 flex items-center justify-between">
                 <h2 className="text-base font-semibold">Transcripción</h2>
                 <span className="rounded-full bg-accent-secondary/15 px-2 py-0.5 text-xs font-medium text-accent-secondary">
-                  Disponible
+                  {transcripcionExistente ? "Guardada" : "Disponible"}
                 </span>
               </div>
               <p className="text-sm text-text-secondary">
-                WhisperX genera los segmentos con marcas de tiempo en el idioma
-                original del audio.
+                {transcripcionExistente
+                  ? "Hay una transcripción guardada: los procedimientos se lanzan sobre ella sin repetir el cómputo."
+                  : "WhisperX genera los segmentos con marcas de tiempo en el idioma original del audio."}
               </p>
               <div className="mt-4">
                 <span className="rounded-full bg-bg-elevated px-2 py-0.5 text-xs text-text-secondary">
@@ -372,7 +422,11 @@ export default function Incubadora() {
             <div>
               <button
                 onClick={() =>
-                  yaProcesado ? setConfirmando(true) : lanzarProcesamiento()
+                  transcripcionExistente
+                    ? continuarProcesamiento()
+                    : yaProcesado
+                      ? setConfirmando(true)
+                      : lanzarProcesamiento()
                 }
                 disabled={fase !== null || contenido.estado === "descargando"}
                 className="w-full cursor-pointer rounded-lg bg-accent-primary px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50"
@@ -385,8 +439,18 @@ export default function Incubadora() {
                       ? "Identificando…"
                       : fase === "traduciendo"
                         ? "Traduciendo…"
-                        : "▶ Lanzar procesamiento"}
+                        : transcripcionExistente
+                          ? "▶ Continuar"
+                          : "▶ Lanzar procesamiento"}
               </button>
+              {transcripcionExistente && !fase && (
+                <button
+                  onClick={() => setConfirmando(true)}
+                  className="mt-2 w-full cursor-pointer text-xs text-text-secondary hover:text-text-primary"
+                >
+                  Volver a transcribir desde cero
+                </button>
+              )}
               {fase && (
                 <p className="mt-3 text-center text-xs text-accent-primary">
                   {fase === "traduciendo"
