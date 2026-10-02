@@ -221,6 +221,65 @@ export default function Mirlo() {
 
   const hayCambios = segmentos?.some((s) => s.modificado) ?? false;
 
+  const ajustarTiempos = (i: number, inicio: number, fin: number) => {
+    if (Number.isNaN(inicio) || Number.isNaN(fin) || fin <= inicio) return;
+    setSegmentos((prev) => {
+      if (!prev) return prev;
+      const nuevos = [...prev];
+      nuevos[i] = { ...nuevos[i], start: inicio, end: fin, modificado: true };
+      return nuevos;
+    });
+  };
+
+  const marcasSegmento = (
+    seg: NonNullable<typeof segmentos>[number],
+    i: number,
+  ) =>
+    editando === i ? (
+      <span className="flex shrink-0 gap-1 pt-0.5">
+        <input
+          type="number"
+          step="0.01"
+          min="0"
+          defaultValue={seg.start}
+          aria-label="Inicio del segmento"
+          onClick={(e) => e.stopPropagation()}
+          onDoubleClick={(e) => e.stopPropagation()}
+          onBlur={(e) => {
+            const v = Number(e.target.value);
+            if (Number.isNaN(v) || v >= seg.end) {
+              e.target.value = String(seg.start);
+              return;
+            }
+            ajustarTiempos(i, v, seg.end);
+          }}
+          className="w-18 rounded border border-border-c bg-bg-elevated px-1 py-0.5 font-mono text-xs"
+        />
+        <input
+          type="number"
+          step="0.01"
+          min="0"
+          defaultValue={seg.end}
+          aria-label="Fin del segmento"
+          onClick={(e) => e.stopPropagation()}
+          onDoubleClick={(e) => e.stopPropagation()}
+          onBlur={(e) => {
+            const v = Number(e.target.value);
+            if (Number.isNaN(v) || v <= seg.start) {
+              e.target.value = String(seg.end);
+              return;
+            }
+            ajustarTiempos(i, seg.start, v);
+          }}
+          className="w-18 rounded border border-border-c bg-bg-elevated px-1 py-0.5 font-mono text-xs"
+        />
+      </span>
+    ) : (
+      <span className="shrink-0 pt-0.5 font-mono text-xs text-text-secondary">
+        {formatearTiempo(seg.start)}
+      </span>
+    );
+
   const guardarTranscripcion = async () => {
     if (!segmentos) return;
     setGuardando(true);
@@ -495,9 +554,7 @@ export default function Mirlo() {
                     } ${seg.modificado ? "border-l-2 border-accent-primary" : ""}`}
                   >
                     <div className="flex gap-3">
-                      <span className="shrink-0 pt-0.5 font-mono text-xs text-text-secondary">
-                        {formatearTiempo(seg.start)}
-                      </span>
+                      {marcasSegmento(seg, i)}
                       {editando === i ? (
                         <textarea
                           autoFocus
@@ -878,9 +935,7 @@ export default function Mirlo() {
                         } ${seg.modificado ? "border-l-2 border-accent-primary" : ""}`}
                       >
                         <div className="flex gap-3">
-                        <span className="shrink-0 pt-0.5 font-mono text-xs text-text-secondary">
-                          {formatearTiempo(seg.start)}
-                        </span>
+                        {marcasSegmento(seg, i)}
                         <span
                           title={seg.hablante ?? "Sin asignar"}
                           style={{
