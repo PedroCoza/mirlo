@@ -221,6 +221,13 @@ export default function Mirlo() {
 
   const hayCambios = segmentos?.some((s) => s.modificado) ?? false;
 
+  const parsearTiempo = (texto: string) => {
+    const partes = texto.split(":");
+    if (partes.length === 1) return Number(partes[0]);
+    if (partes.length === 2) return Number(partes[0]) * 60 + Number(partes[1]);
+    return NaN;
+  };
+
   const ajustarTiempos = (i: number, inicio: number, fin: number) => {
     if (Number.isNaN(inicio) || Number.isNaN(fin) || fin <= inicio) return;
     setSegmentos((prev) => {
@@ -234,51 +241,61 @@ export default function Mirlo() {
   const marcasSegmento = (
     seg: NonNullable<typeof segmentos>[number],
     i: number,
-  ) =>
-    editando === i ? (
-      <span className="flex shrink-0 gap-1 pt-0.5">
-        <input
-          type="number"
-          step="0.01"
-          min="0"
-          defaultValue={seg.start}
-          aria-label="Inicio del segmento"
-          onClick={(e) => e.stopPropagation()}
-          onDoubleClick={(e) => e.stopPropagation()}
-          onBlur={(e) => {
-            const v = Number(e.target.value);
-            if (Number.isNaN(v) || v >= seg.end) {
-              e.target.value = String(seg.start);
-              return;
-            }
-            ajustarTiempos(i, v, seg.end);
-          }}
-          className="w-18 rounded border border-border-c bg-bg-elevated px-1 py-0.5 font-mono text-xs"
-        />
-        <input
-          type="number"
-          step="0.01"
-          min="0"
-          defaultValue={seg.end}
-          aria-label="Fin del segmento"
-          onClick={(e) => e.stopPropagation()}
-          onDoubleClick={(e) => e.stopPropagation()}
-          onBlur={(e) => {
-            const v = Number(e.target.value);
-            if (Number.isNaN(v) || v <= seg.start) {
-              e.target.value = String(seg.end);
-              return;
-            }
-            ajustarTiempos(i, seg.start, v);
-          }}
-          className="w-18 rounded border border-border-c bg-bg-elevated px-1 py-0.5 font-mono text-xs"
-        />
+  ) => {
+    const inputTiempo = (
+      etiqueta: string,
+      valor: number,
+      valido: (v: number) => boolean,
+      aplicar: (v: number) => void,
+    ) => (
+      <input
+        type="text"
+        data-tiempo="1"
+        defaultValue={formatearTiempo(valor)}
+        aria-label={etiqueta}
+        onClick={(e) => e.stopPropagation()}
+        onDoubleClick={(e) => e.stopPropagation()}
+        onBlur={(e) => {
+          const v = parsearTiempo(e.target.value);
+          if (
+            Number.isNaN(v) ||
+            !valido(v) ||
+            v === parsearTiempo(formatearTiempo(valor))
+          ) {
+            e.target.value = formatearTiempo(valor);
+          } else {
+            aplicar(v);
+          }
+          const destino = e.relatedTarget as HTMLElement | null;
+          if (destino?.dataset.tiempo || destino?.tagName === "TEXTAREA")
+            return;
+          if (edicionRef.current) guardarSegmento(i, edicionRef.current.value);
+        }}
+        className="w-14 rounded border border-border-c bg-bg-elevated px-1 py-0.5 text-center font-mono text-[10px] leading-4"
+      />
+    );
+
+    return editando === i ? (
+      <span className="flex shrink-0 flex-col gap-0.5 pt-0.5">
+        {inputTiempo(
+          "Inicio del segmento",
+          seg.start,
+          (v) => v < seg.end,
+          (v) => ajustarTiempos(i, v, seg.end),
+        )}
+        {inputTiempo(
+          "Fin del segmento",
+          seg.end,
+          (v) => v > seg.start,
+          (v) => ajustarTiempos(i, seg.start, v),
+        )}
       </span>
     ) : (
       <span className="shrink-0 pt-0.5 font-mono text-xs text-text-secondary">
         {formatearTiempo(seg.start)}
       </span>
     );
+  };
 
   const guardarTranscripcion = async () => {
     if (!segmentos) return;
@@ -315,6 +332,7 @@ export default function Mirlo() {
     if (!autoGuardar || !hayCambios || guardando) return;
     const t = setTimeout(guardarTranscripcion, 0);
     return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoGuardar, hayCambios, guardando, segmentos]);
 
   const exportar = async (formato: string) => {
@@ -572,7 +590,11 @@ export default function Mirlo() {
                               el.style.height = el.scrollHeight + "px";
                             }
                           }}
-                          onBlur={(e) => guardarSegmento(i, e.target.value)}
+                          onBlur={(e) => {
+                            const destino = e.relatedTarget as HTMLElement | null;
+                            if (destino?.dataset.tiempo) return;
+                            guardarSegmento(i, e.target.value);
+                          }}
                           onKeyDown={(e) => {
                             if (e.key === "Enter" && !e.shiftKey) {
                               e.preventDefault();
@@ -978,7 +1000,11 @@ export default function Mirlo() {
                                 el.style.height = el.scrollHeight + "px";
                               }
                             }}
-                            onBlur={(e) => guardarSegmento(i, e.target.value)}
+                            onBlur={(e) => {
+                              const destino = e.relatedTarget as HTMLElement | null;
+                              if (destino?.dataset.tiempo) return;
+                              guardarSegmento(i, e.target.value);
+                            }}
                             onKeyDown={(e) => {
                               if (e.key === "Enter" && !e.shiftKey) {
                                 e.preventDefault();
