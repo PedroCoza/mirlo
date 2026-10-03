@@ -238,6 +238,15 @@ export default function Mirlo() {
     });
   };
 
+  const reasignarHablante = (i: number, hablante: string) => {
+    setSegmentos((prev) => {
+      if (!prev) return prev;
+      const nuevos = [...prev];
+      nuevos[i] = { ...nuevos[i], hablante, modificado: true };
+      return nuevos;
+    });
+  };
+
   const marcasSegmento = (
     seg: NonNullable<typeof segmentos>[number],
     i: number,
@@ -978,17 +987,36 @@ export default function Mirlo() {
                       >
                         <div className="flex gap-3">
                         {marcasSegmento(seg, i)}
-                        <span
-                          title={seg.hablante ?? "Sin asignar"}
-                          style={{
-                            backgroundColor: seg.hablante
-                              ? colorHablante(seg.hablante)
-                              : "#555",
-                          }}
-                          className="mt-0.5 h-5 w-5 shrink-0 rounded-full text-center text-[10px] font-bold leading-5 text-white"
-                        >
-                          {seg.hablante ? etiquetaHablante(seg.hablante) : "—"}
-                        </span>
+                        {hablantes.length > 0 ? (
+                          <select
+                            value={seg.hablante ?? hablantes[0]}
+                            onChange={(e) =>
+                              reasignarHablante(i, e.target.value)
+                            }
+                            onClick={(e) => e.stopPropagation()}
+                            onDoubleClick={(e) => e.stopPropagation()}
+                            title={seg.hablante ?? "Sin asignar"}
+                            style={{
+                              backgroundColor: seg.hablante
+                                ? colorHablante(seg.hablante)
+                                : "#555",
+                            }}
+                            className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer appearance-none rounded-full border-none text-center text-[10px] font-bold leading-5 text-white outline-none"
+                          >
+                            {hablantes.map((h) => (
+                              <option key={h} value={h}>
+                                {etiquetaHablante(h)}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span
+                            title="Sin asignar"
+                            className="mt-0.5 h-5 w-5 shrink-0 rounded-full bg-[#555] text-center text-[10px] font-bold leading-5 text-white"
+                          >
+                            —
+                          </span>
+                        )}
                         {editando === i ? (
                           <textarea
                             autoFocus
