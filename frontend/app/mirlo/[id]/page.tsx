@@ -96,6 +96,7 @@ export default function Mirlo() {
   const [historial, setHistorial] = useState<Segmento[][]>([]);
   const [guardando, setGuardando] = useState(false);
   const [guardado, setGuardado] = useState(false);
+  const [autoGuardar, setAutoGuardar] = useState(false);
   const [tab, setTab] = useState<
     "transcripcion" | "traduccion" | "diarizacion"
   >("transcripcion");
@@ -203,7 +204,6 @@ export default function Mirlo() {
     }
   };
 
-  // Auto-follow: desplaza solo al cambiar de segmento y si no es visible.
   useEffect(() => {
     if (!autoSeguir || segmentoActivo < 0 || !listaRef.current) return;
     const el = listaRef.current.querySelector(
@@ -310,6 +310,12 @@ export default function Mirlo() {
       setGuardando(false);
     }
   };
+  
+  useEffect(() => {
+    if (!autoGuardar || !hayCambios || guardando) return;
+    const t = setTimeout(guardarTranscripcion, 0);
+    return () => clearTimeout(t);
+  }, [autoGuardar, hayCambios, guardando, segmentos]);
 
   const exportar = async (formato: string) => {
     try {
@@ -672,6 +678,20 @@ export default function Mirlo() {
                     {guardando ? "Guardando…" : "Guardar cambios"}
                   </button>
                 )}
+                <label className="flex cursor-pointer items-center gap-2 text-xs text-text-secondary">
+                  <span className="relative inline-flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={autoGuardar}
+                      onChange={(e) => setAutoGuardar(e.target.checked)}
+                      aria-label="Autoguardado"
+                      className="peer sr-only"
+                    />
+                    <span className="h-5 w-9 rounded-full bg-bg-elevated transition-colors peer-checked:bg-accent-primary" />
+                    <span className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-text-secondary transition-transform peer-checked:translate-x-4 peer-checked:bg-white" />
+                  </span>
+                  Autoguardado
+                </label>
                 {historial.length > 0 && (
                   <button
                     onClick={deshacer}
@@ -1066,6 +1086,20 @@ export default function Mirlo() {
                         {guardando ? "Guardando…" : "Guardar cambios"}
                       </button>
                     )}
+                    <label className="flex cursor-pointer items-center gap-2 text-xs text-text-secondary">
+                      <span className="relative inline-flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={autoGuardar}
+                          onChange={(e) => setAutoGuardar(e.target.checked)}
+                          aria-label="Autoguardado"
+                          className="peer sr-only"
+                        />
+                        <span className="h-5 w-9 rounded-full bg-bg-elevated transition-colors peer-checked:bg-accent-primary" />
+                        <span className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-text-secondary transition-transform peer-checked:translate-x-4 peer-checked:bg-white" />
+                      </span>
+                      Autoguardado
+                    </label>
                     {historial.length > 0 && (
                       <button
                         onClick={deshacer}
