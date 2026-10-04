@@ -101,6 +101,7 @@ export default function Mirlo() {
     "transcripcion" | "traduccion" | "diarizacion"
   >("transcripcion");
   const [traduccion, setTraduccion] = useState<TraduccionData | null>(null);
+  const [hablantesExtra, setHablantesExtra] = useState<string[]>([]);
   const [vistaTraduccion, setVistaTraduccion] = useState<
     "original" | "traduccion" | "ambos"
   >("ambos");
@@ -143,6 +144,7 @@ export default function Mirlo() {
           .then((t) => {
             if (t?.segmentos) {
               setSegmentos(t.segmentos);
+              setHablantesExtra(t.hablantes ?? []);
               fetch(`${API_URL}/traducciones/${t.id}`)
                 .then((r) => (r.ok ? r.json() : null))
                 .then((tr) => {
@@ -164,9 +166,10 @@ export default function Mirlo() {
     ) ?? -1;
 
   const hablantes = [
-    ...new Set(
-      segmentos?.flatMap((s) => (s.hablante ? [s.hablante] : [])) ?? [],
-    ),
+    ...new Set([
+      ...(segmentos?.flatMap((s) => (s.hablante ? [s.hablante] : [])) ?? []),
+      ...hablantesExtra,
+    ]),
   ].sort();
 
   const colorHablante = (nombre: string) =>
@@ -440,6 +443,9 @@ export default function Mirlo() {
     const limpio = nuevo.trim();
     setRenombrando(null);
     if (!limpio || limpio === anterior || !segmentos) return;
+    setHablantesExtra((prev) =>
+      prev.map((h) => (h === anterior ? limpio : h)),
+    );
     aplicar(
       segmentos.map((s) =>
         s.hablante === anterior
@@ -451,6 +457,7 @@ export default function Mirlo() {
 
   const fusionarHablantes = (absorbido: string, destino: string) => {
     setFusionando(null);
+    setHablantesExtra((prev) => prev.filter((h) => h !== absorbido));
     if (!segmentos) return;
     aplicar(
       segmentos.map((s) =>
@@ -459,6 +466,22 @@ export default function Mirlo() {
           : s,
       ),
     );
+  };
+
+  const anadirHablante = () => {
+    let n = hablantes.length;
+    let nombre = `SPEAKER_${String(n).padStart(2, "0")}`;
+    while (hablantes.includes(nombre)) {
+      n += 1;
+      nombre = `SPEAKER_${String(n).padStart(2, "0")}`;
+    }
+    setHablantesExtra((prev) => [...prev, nombre]);
+  };
+
+  const quitarHablante = (nombre: string) => {
+    if (segmentos?.some((s) => s.hablante === nombre)) return;
+    setHablantesExtra((prev) => prev.filter((h) => h !== nombre));
+    if (renombrando === nombre) setRenombrando(null);
   };
 
   const formatearTiempo = (t: number) => {
@@ -1186,7 +1209,15 @@ export default function Mirlo() {
                   </div>
                   </div>
                   <aside className="flex flex-col rounded-2xl border border-border-c bg-bg-surface p-4">
-                    <h3 className="text-sm font-semibold">Hablantes</h3>
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-semibold">Hablantes</h3>
+                      <button
+                        onClick={anadirHablante}
+                        className="cursor-pointer text-xs text-text-secondary hover:text-accent-primary"
+                      >
+                        + Añadir
+                      </button>
+                    </div>
                     {repartoHablantes.map((h) => (
                       <div key={h.nombre} className="mt-4">
                         <div className="flex items-center gap-2">
@@ -1226,6 +1257,18 @@ export default function Mirlo() {
                               {h.nombre}
                             </button>
                           )}
+                          <button
+                            onClick={() => quitarHablante(h.nombre)}
+                            disabled={h.segmentos > 0}
+                            title={
+                              h.segmentos > 0
+                                ? "Reasigna sus segmentos antes de quitarlo"
+                                : "Quitar hablante"
+                            }
+                            className="ml-auto shrink-0 cursor-pointer text-xs text-text-secondary hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-30"
+                          >
+                            ✕
+                          </button>
                         </div>
                         <div className="mt-1.5 flex justify-between text-xs text-text-secondary">
                           <span>{h.segmentos} segmentos</span>
