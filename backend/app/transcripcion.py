@@ -21,7 +21,7 @@ def transcribir(ruta_audio):
     modelo = cargar_modelo()
     audio = whisperx.load_audio(ruta_audio)
     resultado = modelo.transcribe(audio, batch_size=8)
-    return [
+    segmentos = [
         {
             "start": round(s["start"], 3),
             "end": round(s["end"], 3),
@@ -29,6 +29,16 @@ def transcribir(ruta_audio):
         }
         for s in resultado["segments"]
     ]
+    return segmentos, resultado.get("language")
+
+
+def detectar_idioma(ruta_audio):
+    # Con los primeros 30 segundos de audio basta para identificar el idioma.
+    modelo = cargar_modelo()
+    audio = whisperx.load_audio(ruta_audio)
+    ventana = audio[: 16000 * 30]
+    resultado = modelo.transcribe(ventana, batch_size=1)
+    return resultado.get("language")
 
 
 def preprocesar_audio(ruta_entrada):

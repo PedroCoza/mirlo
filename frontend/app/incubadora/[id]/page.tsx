@@ -18,7 +18,24 @@ type TranscripcionGuardada = {
   id: string;
   segmentos: unknown[];
   hablantes: string[] | null;
+  idioma: string | null;
 };
+
+const NOMBRES_IDIOMA: Record<string, string> = {
+  es: "Español",
+  en: "Inglés",
+  fr: "Francés",
+  pt: "Portugués",
+  de: "Alemán",
+  it: "Italiano",
+};
+
+const IDIOMAS_DESTINO = [
+  { codigo: "es", nombre: "Español" },
+  { codigo: "en", nombre: "Inglés" },
+  { codigo: "fr", nombre: "Francés" },
+  { codigo: "pt", nombre: "Portugués" },
+];
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -69,6 +86,9 @@ export default function Incubadora() {
   const [confirmando, setConfirmando] = useState(false);
   const [transcripcionExistente, setTranscripcionExistente] =
     useState<TranscripcionGuardada | null>(null);
+  const [idiomaDetectado, setIdiomaDetectado] = useState<
+    string | null | undefined
+  >(undefined);
 
   useEffect(() => {
     if (hidratado && !perfil) {
@@ -104,9 +124,34 @@ export default function Incubadora() {
   useEffect(() => {
     fetch(`${API_URL}/transcripciones/${params.id}`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((t) => t && setTranscripcionExistente(t))
+      .then((t) => {
+        if (t) {
+          setTranscripcionExistente(t);
+          setIdiomaDetectado(t.idioma ?? null);
+        }
+      })
       .catch(() => {});
   }, [params.id]);
+
+  // Extraer idioma origen del contenido a procesar para limitar traducciones
+  useEffect(() => {
+    if (idiomaDetectado !== undefined || transcripcionExistente || !contenido)
+      return;
+    if (contenido.estado !== "pendiente") return;
+    fetch(`${API_URL}/idioma/${params.id}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setIdiomaDetectado(d?.idioma ?? null))
+      .catch(() => setIdiomaDetectado(null));
+  }, [idiomaDetectado, transcripcionExistente, contenido, params.id]);
+
+  const calculandoIdioma =
+    idiomaDetectado === undefined && contenido?.estado === "pendiente";
+
+  const idiomaDestino =
+    idiomaDetectado && idioma === idiomaDetectado
+      ? (IDIOMAS_DESTINO.find((i) => i.codigo !== idiomaDetectado)?.codigo ??
+        idioma)
+      : idioma;
 
   const aplicarProcedimientos = async (
     transcripcionId: string,
@@ -140,7 +185,7 @@ export default function Incubadora() {
       const resTrad = await fetch(`${API_URL}/traducir/${transcripcionId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idioma }),
+        body: JSON.stringify({ idioma: idiomaDestino }),
       });
       if (!resTrad.ok) {
         const err = await resTrad.json().catch(() => ({}));
@@ -169,6 +214,7 @@ export default function Incubadora() {
       }
       const data = await res.json();
       let segmentos = data.segmentos;
+      setIdiomaDetectado(data.idioma ?? null);
 
       if (diarizar || traducir) {
         const guardado = await fetch(`${API_URL}/transcripciones`, {
@@ -177,6 +223,7 @@ export default function Incubadora() {
           body: JSON.stringify({
             contenido_id: params.id,
             segmentos,
+            idioma: data.idioma,
           }),
         });
         if (!guardado.ok) {
@@ -321,13 +368,23 @@ export default function Incubadora() {
                   ? "Hay una transcripción guardada: los procedimientos se lanzan sobre ella sin repetir el cómputo."
                   : "WhisperX genera los segmentos con marcas de tiempo en el idioma original del audio."}
               </p>
-              <div className="mt-4">
+              <div className="mt-4 flex gap-2">
                 <span className="rounded-full bg-bg-elevated px-2 py-0.5 text-xs text-text-secondary">
                   {contenido.estado === "descargando" && "⬇ Descargando"}
                   {contenido.estado === "pendiente" && "○ Pendiente"}
                   {contenido.estado === "procesado" && "🎙️ Transcrito"}
                   {contenido.estado === "traducido" && "🌐 Traducido"}
                 </span>
+                {idiomaDetectado && (
+                  <span className="rounded-full bg-accent-primary/15 px-2 py-0.5 text-xs font-medium text-accent-primary">
+                    Idioma: {NOMBRES_IDIOMA[idiomaDetectado] ?? idiomaDetectado}
+                  </span>
+                )}
+                {calculandoIdioma && (
+                  <span className="rounded-full bg-bg-elevated px-2 py-0.5 text-xs text-text-secondary">
+                    Idioma: calculando…
+                  </span>
+                )}
               </div>
             </section>
 
@@ -360,14 +417,18 @@ export default function Incubadora() {
                   Idioma destino
                 </span>
                 <select
-                  value={idioma}
+                  value={idiomaDestino}
                   onChange={(e) => setIdioma(e.target.value)}
                   disabled={!traducir}
                   className="rounded-lg border border-border-c bg-bg-elevated px-2 py-1.5 text-sm disabled:opacity-50"
                 >
-                  <option value="en">Inglés</option>
-                  <option value="fr">Francés</option>
-                  <option value="pt">Portugués</option>
+                  {IDIOMAS_DESTINO.filter(
+                    (i) => i.codigo !== idiomaDetectado,
+                  ).map((i) => (
+                    <option key={i.codigo} value={i.codigo}>
+                      {i.nombre}
+                    </option>
+                  ))}
                 </select>
               </div>
               <p className="mt-3 text-xs text-text-secondary">

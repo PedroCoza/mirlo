@@ -45,7 +45,8 @@ def test_transcribir_da_formato_a_los_segmentos(monkeypatch):
             return {
                 "segments": [
                     {"start": 0.0004, "end": 3.49991, "text": "  Hola mundo  "},
-                ]
+                ],
+                "language": "es",
             }
 
     cargas = []
@@ -58,10 +59,24 @@ def test_transcribir_da_formato_a_los_segmentos(monkeypatch):
     monkeypatch.setattr(transcripcion.whisperx, "load_model", _load_model_fake)
     monkeypatch.setattr(transcripcion.whisperx, "load_audio", lambda ruta: b"audio")
 
-    segmentos = transcripcion.transcribir("x.wav")
+    segmentos, idioma = transcripcion.transcribir("x.wav")
 
     assert segmentos == [{"start": 0.0, "end": 3.5, "text": "Hola mundo"}]
+    assert idioma == "es"
 
     # el modelo se cachea: una segunda pasada no vuelve a cargarlo
     transcripcion.transcribir("x.wav")
     assert len(cargas) == 1
+
+
+def test_detectar_idioma_del_contenido(client, perfil, tmp_descargas, mock_whisperx):
+    subida = client.post(
+        f"/biblioteca/subir?perfil_id={perfil['id']}",
+        files={"archivo": ("podcast.m4a", b"audio", "audio/mp4")},
+    )
+    contenido = subida.json()
+
+    resp = client.get(f"/idioma/{contenido['id']}")
+
+    assert resp.status_code == 200
+    assert resp.json()["idioma"] == "es"

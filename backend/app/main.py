@@ -24,7 +24,7 @@ from app import diarizacion
 from app import exportacion
 from app import traduccion
 from app import youtube
-from app.transcripcion import transcribir, preprocesar_audio
+from app.transcripcion import transcribir, preprocesar_audio, detectar_idioma
 
 EXTENSIONES_AUDIO = {".mp3", ".wav", ".m4a", ".flac", ".ogg", ".aac"}
 EXTENSIONES_VIDEO = {".mp4", ".mkv", ".avi", ".webm", ".mov"}
@@ -285,7 +285,7 @@ def transcribir_contenido(contenido_id: uuid.UUID, db: Session = Depends(get_db)
         raise HTTPException(400, str(e))
 
     try:
-        segmentos = transcribir(ruta_audio)
+        segmentos, idioma = transcribir(ruta_audio)
     finally:
         if os.path.exists(ruta_audio):
             os.remove(ruta_audio)
@@ -293,7 +293,33 @@ def transcribir_contenido(contenido_id: uuid.UUID, db: Session = Depends(get_db)
     contenido.estado = "procesado"
     db.commit()
 
-    return {"segmentos": segmentos}
+    return {"segmentos": segmentos, "idioma": idioma}
+
+
+@app.get("/idioma/{contenido_id}")
+def detectar_idioma_contenido(
+    contenido_id: uuid.UUID, db: Session = Depends(get_db)
+):
+    contenido = db.query(Contenido).filter(Contenido.id == contenido_id).first()
+    if not contenido:
+        raise HTTPException(404, "Contenido no encontrado")
+
+    ruta_original = os.path.join(DESCARGAS_DIR, str(contenido.perfil_id), contenido.ruta)
+    if not os.path.exists(ruta_original):
+        raise HTTPException(500, "Archivo no encontrado en disco")
+
+    try:
+        ruta_audio = preprocesar_audio(ruta_original)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+    try:
+        idioma = detectar_idioma(ruta_audio)
+    finally:
+        if os.path.exists(ruta_audio):
+            os.remove(ruta_audio)
+
+    return {"idioma": idioma}
 
 
 class TranscripcionCreate(BaseModel):
