@@ -130,13 +130,13 @@ class _FakeYoutubeDL:
         outtmpl = self.opciones.get("outtmpl", "%(title)s.%(ext)s")
         destino = Path(outtmpl).parent
         destino.mkdir(parents=True, exist_ok=True)
-        (destino / "titulo-fake.mp3").write_bytes(b"audio-fake")
+        (destino / "titulo-fake.mp4").write_bytes(b"video-fake")
 
     def extract_info(self, url, download=False):
         return {
             "id": "abc123",
             "title": "Título de prueba",
-            "ext": "mp3",
+            "ext": "mp4",
             "duration": 180,
             "uploader": "Canal Fake",
             "thumbnail": "https://i.ytimg.com/vi/abc123/hqdefault.jpg",

@@ -89,20 +89,16 @@ def listar_videos(perfil_id: str) -> list[dict]:
     return videos
 
 
-def descargar_audio(video_id: str, perfil_id: str) -> str:
-    """Descarga el audio de un vídeo con yt-dlp y devuelve la ruta del archivo."""
+def descargar_video(video_id: str, perfil_id: str) -> str:
+    """Descarga el vídeo con su audio y devuelve la ruta del archivo."""
     url = f"https://www.youtube.com/watch?v={video_id}"
     destino = Path("descargas") / perfil_id
     destino.mkdir(parents=True, exist_ok=True)
 
     opciones = {
-        "format": "bestaudio/best",
+        "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+        "merge_output_format": "mp4",
         "outtmpl": str(destino / "%(title).80s.%(ext)s"),
-        "postprocessors": [{
-            "key": "FFmpegExtractAudio",
-            "preferredcodec": "mp3",
-            "preferredquality": "192",
-        }],
         "quiet": True,
         "no_warnings": True,
     }
@@ -110,5 +106,5 @@ def descargar_audio(video_id: str, perfil_id: str) -> str:
     with yt_dlp.YoutubeDL(opciones) as ydl:
         ydl.download([url])
 
-    archivos = sorted(destino.glob("*.mp3"), key=lambda f: f.stat().st_mtime)
+    archivos = sorted(destino.glob("*.mp4"), key=lambda f: f.stat().st_mtime)
     return str(archivos[-1]) if archivos else ""

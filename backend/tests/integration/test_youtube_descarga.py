@@ -10,10 +10,10 @@ pytestmark = [pytest.mark.integration, pytest.mark.youtube]
 def test_descarga(mock_ytdlp, monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
 
-    ruta = youtube.descargar_audio("dQw4w9WgXcQ", "perfil-1")
+    ruta = youtube.descargar_video("dQw4w9WgXcQ", "perfil-1")
 
     assert ruta
-    assert ruta.endswith(".mp3")
+    assert ruta.endswith(".mp4")
     assert os.path.exists(ruta)
 
 
@@ -33,11 +33,15 @@ def test_registro_descarga(client, perfil, mock_ytdlp, monkeypatch, tmp_path):
     assert contenido["video_id"] == "abc123"
 
     # La descarga en segundo plano ya se ha ejecutado al cerrar la peticion
+    detalle = client.get(f"/biblioteca/contenido/{contenido['id']}").json()
+    assert detalle["estado"] == "pendiente"
+    assert detalle["tipo"] == "video"
+    assert detalle["ruta"].endswith(".mp4")
+
     listado = client.get(f"/biblioteca/{perfil['id']}").json()
     encontrados = [c for c in listado if c["id"] == contenido["id"]]
     assert len(encontrados) == 1
-    assert encontrados[0]["estado"] == "pendiente"
-    assert encontrados[0]["ruta"].endswith(".mp3")
+    assert encontrados[0]["video_id"] == "abc123"
 
     # Registrar el mismo video devuelve el contenido existente
     resp2 = client.post("/youtube/registrar", json=peticion)
@@ -49,7 +53,7 @@ def test_descarga_error(mock_ytdlp_error, monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
 
     with pytest.raises(youtube.yt_dlp.DownloadError):
-        youtube.descargar_audio("invalido", "perfil-err")
+        youtube.descargar_video("invalido", "perfil-err")
 
 
 def test_registro_fallo_limpia(client, perfil, mock_ytdlp_error, monkeypatch, tmp_path):

@@ -131,7 +131,7 @@ def _descargar_youtube(contenido_id, video_id, perfil_id):
         if not contenido:
             return
         try:
-            ruta = youtube.descargar_audio(video_id, str(perfil_id))
+            ruta = youtube.descargar_video(video_id, str(perfil_id))
             if not ruta:
                 raise RuntimeError("La descarga no produjo ningun archivo")
         except Exception:
@@ -164,7 +164,7 @@ def youtube_registrar(
     contenido = Contenido(
         perfil_id=perfil.id,
         nombre=data.titulo,
-        tipo="audio",
+        tipo="video",
         ruta="",
         origen="youtube",
         video_id=data.video_id,
