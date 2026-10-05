@@ -220,7 +220,7 @@ function NidoContenido() {
   };
 
   const archivosFiltrados = useMemo(() => {
-    let lista = archivos;
+    let lista = archivos.filter((a) => !a.video_id);
     if (busqueda) {
       const q = normalizarTexto(busqueda);
       lista = lista.filter((a) => normalizarTexto(a.nombre).includes(q));
@@ -327,7 +327,7 @@ function NidoContenido() {
             onCerrar={() => setErrorBiblioteca(null)}
           />
 
-          {archivos.length === 0 ? (
+          {!archivos.some((a) => !a.video_id) ? (
             <div className="flex flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-border-light bg-bg-surface p-12 text-center">
               <span className="text-5xl" aria-hidden>
                 📁
@@ -529,7 +529,9 @@ function NidoContenido() {
                       unoptimized
                       className="aspect-video w-full rounded-lg object-cover"
                     />
-                    <p className="line-clamp-2 text-sm font-medium">{v.titulo}</p>
+                    <p className="line-clamp-2 h-10 text-sm font-medium">
+                      {v.titulo}
+                    </p>
                     <div className="flex items-center justify-between">
                       <span className="rounded-full bg-bg-elevated px-2 py-0.5 text-xs text-text-secondary">
                         {contenido?.estado === "descargando" && "⬇ Descargando"}

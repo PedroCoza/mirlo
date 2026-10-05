@@ -89,6 +89,7 @@ export default function Incubadora() {
   const [idiomaDetectado, setIdiomaDetectado] = useState<
     string | null | undefined
   >(undefined);
+  const [hayTraduccion, setHayTraduccion] = useState(false);
 
   useEffect(() => {
     if (hidratado && !perfil) {
@@ -128,6 +129,10 @@ export default function Incubadora() {
         if (t) {
           setTranscripcionExistente(t);
           setIdiomaDetectado(t.idioma ?? null);
+          fetch(`${API_URL}/traducciones/${t.id}`)
+            .then((r) => (r.ok ? r.json() : null))
+            .then((tr) => setHayTraduccion(Boolean(tr?.segmentos)))
+            .catch(() => {});
         }
       })
       .catch(() => {});
@@ -135,9 +140,9 @@ export default function Incubadora() {
 
   // Extraer idioma origen del contenido a procesar para limitar traducciones
   useEffect(() => {
-    if (idiomaDetectado !== undefined || transcripcionExistente || !contenido)
-      return;
-    if (contenido.estado !== "pendiente") return;
+    if (idiomaDetectado !== undefined || !contenido) return;
+    if (contenido.estado === "descargando") return;
+    if (transcripcionExistente?.idioma) return;
     fetch(`${API_URL}/idioma/${params.id}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => setIdiomaDetectado(d?.idioma ?? null))
@@ -145,7 +150,7 @@ export default function Incubadora() {
   }, [idiomaDetectado, transcripcionExistente, contenido, params.id]);
 
   const calculandoIdioma =
-    idiomaDetectado === undefined && contenido?.estado === "pendiente";
+    idiomaDetectado === undefined && contenido?.estado !== "descargando";
 
   const idiomaDestino =
     idiomaDetectado && idioma === idiomaDetectado
@@ -347,15 +352,16 @@ export default function Incubadora() {
 
           {/* Derecha: panel de configuración del procesamiento */}
           <div className="flex flex-col gap-4">
-            {contenido.estado !== "pendiente" && (
-              <Link
-                href={`/mirlo/${params.id}`}
-                className="flex items-center justify-between rounded-xl border border-accent-secondary/40 bg-accent-secondary/10 px-4 py-2.5 text-sm font-medium text-accent-secondary"
-              >
-                <span>✓ Ya procesado</span>
-                <span>Abrir →</span>
-              </Link>
-            )}
+            {contenido.estado !== "pendiente" &&
+              contenido.estado !== "descargando" && (
+                <Link
+                  href={`/mirlo/${params.id}`}
+                  className="flex items-center justify-between rounded-xl border border-accent-secondary/40 bg-accent-secondary/10 px-4 py-2.5 text-sm font-medium text-accent-secondary"
+                >
+                  <span>✓ Ya procesado</span>
+                  <span>Abrir →</span>
+                </Link>
+              )}
             <section className="rounded-2xl border border-border-c bg-bg-surface p-5">
               <div className="mb-2 flex items-center justify-between">
                 <h2 className="text-base font-semibold">Transcripción</h2>
@@ -368,13 +374,35 @@ export default function Incubadora() {
                   ? "Hay una transcripción guardada: los procedimientos se lanzan sobre ella sin repetir el cómputo."
                   : "WhisperX genera los segmentos con marcas de tiempo en el idioma original del audio."}
               </p>
-              <div className="mt-4 flex gap-2">
-                <span className="rounded-full bg-bg-elevated px-2 py-0.5 text-xs text-text-secondary">
-                  {contenido.estado === "descargando" && "⬇ Descargando"}
-                  {contenido.estado === "pendiente" && "○ Pendiente"}
-                  {contenido.estado === "procesado" && "🎙️ Transcrito"}
-                  {contenido.estado === "traducido" && "🌐 Traducido"}
-                </span>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {contenido.estado === "descargando" && (
+                  <span className="rounded-full bg-bg-elevated px-2 py-0.5 text-xs text-text-secondary">
+                    ⬇ Descargando
+                  </span>
+                )}
+                {transcripcionExistente ? (
+                  <>
+                    <span className="rounded-full bg-bg-elevated px-2 py-0.5 text-xs text-text-secondary">
+                      🎙️ Transcrito
+                    </span>
+                    {transcripcionExistente.hablantes?.length ? (
+                      <span className="rounded-full bg-bg-elevated px-2 py-0.5 text-xs text-text-secondary">
+                        👥 Diarizado
+                      </span>
+                    ) : null}
+                    {hayTraduccion && (
+                      <span className="rounded-full bg-bg-elevated px-2 py-0.5 text-xs text-text-secondary">
+                        🌐 Traducido
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  contenido.estado === "pendiente" && (
+                    <span className="rounded-full bg-bg-elevated px-2 py-0.5 text-xs text-text-secondary">
+                      ○ Pendiente
+                    </span>
+                  )
+                )}
                 {idiomaDetectado && (
                   <span className="rounded-full bg-accent-primary/15 px-2 py-0.5 text-xs font-medium text-accent-primary">
                     Idioma: {NOMBRES_IDIOMA[idiomaDetectado] ?? idiomaDetectado}
