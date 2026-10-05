@@ -160,9 +160,13 @@ export default function Configuracion() {
               onChange={(e) => setModelo(e.target.value)}
               className="rounded-lg border border-border-c bg-bg-elevated px-3 py-2 text-sm"
             >
+              <option value="tiny">tiny</option>
               <option value="base">base</option>
               <option value="small">small</option>
               <option value="medium">medium</option>
+              <option value="large-v3">large-v1</option>
+              <option value="large-v3">large-v2</option>
+              <option value="large-v3">large-v3</option>
             </select>
           </label>
 

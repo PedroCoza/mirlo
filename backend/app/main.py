@@ -284,8 +284,15 @@ def transcribir_contenido(contenido_id: uuid.UUID, db: Session = Depends(get_db)
     except ValueError as e:
         raise HTTPException(400, str(e))
 
+    perfil = db.query(Perfil).filter(Perfil.id == contenido.perfil_id).first()
+
     try:
-        segmentos, idioma = transcribir(ruta_audio)
+        segmentos, idioma = transcribir(
+            ruta_audio,
+            modelo_nombre=perfil.modelo_whisper if perfil else None,
+            compute_type=perfil.compute_type if perfil else None,
+            batch_size=perfil.batch_size if perfil else 8,
+        )
     finally:
         if os.path.exists(ruta_audio):
             os.remove(ruta_audio)
@@ -313,8 +320,14 @@ def detectar_idioma_contenido(
     except ValueError as e:
         raise HTTPException(400, str(e))
 
+    perfil = db.query(Perfil).filter(Perfil.id == contenido.perfil_id).first()
+
     try:
-        idioma = detectar_idioma(ruta_audio)
+        idioma = detectar_idioma(
+            ruta_audio,
+            modelo_nombre=perfil.modelo_whisper if perfil else None,
+            compute_type=perfil.compute_type if perfil else None,
+        )
     finally:
         if os.path.exists(ruta_audio):
             os.remove(ruta_audio)

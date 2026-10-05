@@ -101,12 +101,12 @@ def mock_whisperx(monkeypatch):
     def _preprocesar_fake(ruta):
         return str(ruta) + ".wav"
 
-    def _transcribir_fake(ruta):
+    def _transcribir_fake(ruta, **kwargs):
         return [dict(s) for s in SEGMENTOS_FAKE], "es"
 
     monkeypatch.setattr(app.main, "preprocesar_audio", _preprocesar_fake)
     monkeypatch.setattr(app.main, "transcribir", _transcribir_fake)
-    monkeypatch.setattr(app.main, "detectar_idioma", lambda ruta: "es")
+    monkeypatch.setattr(app.main, "detectar_idioma", lambda ruta, **kwargs: "es")
     return SEGMENTOS_FAKE
 
 
